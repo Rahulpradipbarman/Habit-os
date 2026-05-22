@@ -106,6 +106,27 @@ export default function TodayClient({
     };
   });
 
+  const [optimisticHabits, toggleOptimisticHabit] = useOptimistic(
+    mappedHabits,
+    (state, habitId: string) => {
+      return state.map((h) => {
+        if (h.id === habitId) {
+          const nextCompleted = !h.completed;
+          return {
+            ...h,
+            completed: nextCompleted,
+            streak: nextCompleted ? h.streak + 1 : Math.max(0, h.streak - 1),
+          };
+        }
+        return h;
+      });
+    }
+  );
+
+  const dailyGoalCompleted = optimisticHabits.filter((h) => h.completed).length;
+  const dailyGoalTotal = optimisticHabits.length;
+  const currentStreak = optimisticHabits.length > 0 ? Math.max(...optimisticHabits.map((h) => h.streak), 0) : 0;
+
   const heatmapData = React.useMemo(() => {
     const data = [];
     const today = new Date();
@@ -124,7 +145,7 @@ export default function TodayClient({
       const dayLogs = initialLogs90Days.filter(
         log => log.date === dateStr && log.completed && !log.habits?.name?.startsWith('__mood_')
       );
-      const completedCount = dayLogs.length;
+      const completedCount = dateStr === todayStr ? dailyGoalCompleted : dayLogs.length;
       
       let level = 0;
       if (isFuture) {
@@ -146,37 +167,50 @@ export default function TodayClient({
       });
     }
     return data;
-  }, [initialLogs90Days]);
+  }, [initialLogs90Days, todayStr, dailyGoalCompleted]);
 
-  // Extract mood history from 90-day logs
+  // Mood selector state (optimistic)
+  const initialMood = getMoodFromLogs(initialTodayLogs);
+  const [currentMood, setCurrentMood] = useState(initialMood);
+  const moodEmojis = ['☀️', '🌤️', '😊', '😐', '😔'];
+
+  const getMoodGradient = (emoji: string) => {
+    switch (emoji) {
+      case '☀️': return 'bg-gradient-to-br from-yellow-50 to-orange-50';
+      case '🌤️': return 'bg-gradient-to-br from-orange-50 to-yellow-50/50';
+      case '😊': return 'bg-gradient-to-br from-green-50 to-emerald-50/50';
+      case '😐': return 'bg-gradient-to-br from-gray-50 to-slate-50';
+      case '😔': return 'bg-gradient-to-br from-blue-50 to-indigo-50/50';
+      default: return 'bg-white';
+    }
+  };
+
+  const getMoodColorClass = (emoji: string) => {
+    switch (emoji) {
+      case '☀️': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case '🌤️': return 'bg-orange-50 text-orange-800 border-orange-100';
+      case '😊': return 'bg-green-50 text-green-800 border-green-100';
+      case '😐': return 'bg-gray-100 text-gray-800 border-gray-200';
+      case '😔': return 'bg-blue-50 text-blue-800 border-blue-100';
+      default: return 'bg-surface-container-low text-on-surface-variant border-outline-variant/20';
+    }
+  };
+
+  // Extract mood history from 90-day logs + optimistic current day
   const moodHistory = React.useMemo(() => {
     const moods: { date: string; emoji: string }[] = [];
     const moodLogs = initialLogs90Days.filter(
-      log => log.completed && log.habits?.name?.startsWith('__mood_')
+      log => log.completed && log.habits?.name?.startsWith('__mood_') && log.date !== todayStr
     );
     for (const log of moodLogs) {
       const emoji = log.habits.name.replace('__mood_', '').replace('__', '');
       moods.push({ date: log.date, emoji });
     }
-    return moods.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
-  }, [initialLogs90Days]);
-
-  const [optimisticHabits, toggleOptimisticHabit] = useOptimistic(
-    mappedHabits,
-    (state, habitId: string) => {
-      return state.map((h) => {
-        if (h.id === habitId) {
-          const nextCompleted = !h.completed;
-          return {
-            ...h,
-            completed: nextCompleted,
-            streak: nextCompleted ? h.streak + 1 : Math.max(0, h.streak - 1),
-          };
-        }
-        return h;
-      });
+    if (currentMood) {
+      moods.push({ date: todayStr, emoji: currentMood });
     }
-  );
+    return moods.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
+  }, [initialLogs90Days, currentMood, todayStr]);
   // Confetti helper
   const triggerConfetti = (element: HTMLElement) => {
     const colors = ['#00685f', '#565e74', '#006387'];
@@ -287,10 +321,6 @@ export default function TodayClient({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Mood selector
-  const currentMood = getMoodFromLogs(initialTodayLogs);
-  const moodEmojis = ['☀️', '🌤️', '😊', '😐', '😔'];
-
   // Filtered habits
   const filteredHabits = optimisticHabits.filter((h) => {
     if (!activeSearch.trim()) return true;
@@ -298,13 +328,15 @@ export default function TodayClient({
            h.description.toLowerCase().includes(activeSearch.toLowerCase());
   });
 
-  const dailyGoalCompleted = optimisticHabits.filter((h) => h.completed).length;
-  const dailyGoalTotal = optimisticHabits.length;
-  const currentStreak = optimisticHabits.length > 0 ? Math.max(...optimisticHabits.map((h) => h.streak), 0) : 0;
-
-  // Use real weekly success rate
-  const weeklySuccessRate = initialWeeklySuccess.current;
-  const weeklyDelta = initialWeeklySuccess.current - initialWeeklySuccess.previous;
+  const initialTodayCompleted = dbHabits.filter(h => initialTodayLogs.some(log => log.habit_id === h.id && log.completed)).length;
+  const todayDelta = dailyGoalCompleted - initialTodayCompleted;
+  const totalWeeklyPossible = dbHabits.length * 7;
+  
+  // Use real weekly success rate + optimistic adjustments
+  const optimisticWeeklySuccess = totalWeeklyPossible > 0 
+    ? Math.max(0, Math.min(100, initialWeeklySuccess.current + Math.round((todayDelta / totalWeeklyPossible) * 100)))
+    : initialWeeklySuccess.current;
+  const weeklyDelta = optimisticWeeklySuccess - initialWeeklySuccess.previous;
 
   const completionPercentage = dailyGoalTotal > 0 ? Math.round((dailyGoalCompleted / dailyGoalTotal) * 100) : 0;
 
@@ -319,14 +351,38 @@ export default function TodayClient({
       const dayLogs = initialLogs90Days.filter(
         log => log.date === dateStr && log.completed && !log.habits?.name?.startsWith('__mood_')
       );
-      const ratio = dailyGoalTotal > 0 ? dayLogs.length / dailyGoalTotal : 0;
+      const completedCount = dateStr === todayStr ? dailyGoalCompleted : dayLogs.length;
+      const ratio = dailyGoalTotal > 0 ? completedCount / dailyGoalTotal : 0;
       bars.push({
         day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()],
         ratio: Math.min(ratio, 1),
       });
     }
     return bars;
-  }, [initialLogs90Days, dailyGoalTotal]);
+  }, [initialLogs90Days, dailyGoalTotal, todayStr, dailyGoalCompleted]);
+
+  const optimisticWeeklyTrends = React.useMemo(() => {
+    if (initialWeeklyTrends.length === 0) return [];
+    const newTrends = [...initialWeeklyTrends];
+    const currentWeekIdx = newTrends.findIndex(w => w.label === 'Current');
+    if (currentWeekIdx !== -1) {
+       const percentageDelta = totalWeeklyPossible > 0 ? (todayDelta / totalWeeklyPossible) * 100 : 0;
+       newTrends[currentWeekIdx] = {
+         ...newTrends[currentWeekIdx],
+         percentage: Math.max(0, Math.min(100, newTrends[currentWeekIdx].percentage + Math.round(percentageDelta)))
+       };
+    }
+    return newTrends;
+  }, [initialWeeklyTrends, todayDelta, totalWeeklyPossible]);
+
+  const liveLeaderboard = React.useMemo(() => {
+     return initialLeaderboard.map(entry => {
+       if (entry.userId === userId) {
+         return { ...entry, streak: Math.max(entry.streak, currentStreak) };
+       }
+       return entry;
+     }).sort((a, b) => b.streak - a.streak);
+  }, [initialLeaderboard, userId, currentStreak]);
 
   return (
     <SidebarLayout onAddHabitClick={() => { setEditingHabit(null); setIsModalOpen(true); }}>
@@ -403,7 +459,7 @@ export default function TodayClient({
               <div className="bg-white p-6 rounded-xl habit-card-shadow flex flex-col justify-between border border-surface-container">
                 <div>
                   <p className="text-[10px] font-extrabold text-on-surface-variant uppercase tracking-wider mb-1">Weekly Success</p>
-                  <h3 className="font-headline text-3xl font-extrabold text-tertiary-container">{weeklySuccessRate}%</h3>
+                  <h3 className="font-headline text-3xl font-extrabold text-tertiary-container">{optimisticWeeklySuccess}%</h3>
                   
                   {/* Real day-by-day bars */}
                   <div className="flex gap-1.5 mt-4">
@@ -529,20 +585,20 @@ export default function TodayClient({
                 </div>
 
                 {/* Mood Tracker Bento Box */}
-                <div className="bg-white p-6 rounded-xl habit-card-shadow border border-surface-container flex flex-col justify-between">
+                <div className={`bg-white p-6 rounded-xl habit-card-shadow border flex flex-col justify-between transition-colors duration-700 ease-in-out ${getMoodGradient(currentMood)} ${currentMood ? 'border-transparent' : 'border-surface-container'}`}>
                   <div>
                     <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">How are you feeling?</h3>
-                    <div className="flex justify-between px-1">
+                    <div className="flex justify-between px-1 items-center h-12">
                       {moodEmojis.map((emoji) => {
                         const isSelected = currentMood === emoji;
                         return (
                           <button
                             key={emoji}
                             onClick={() => handleSaveMood(emoji)}
-                            className={`text-2xl transition-all hover:scale-125 ${
+                            className={`text-2xl transition-all duration-300 hover:scale-125 ${
                               isSelected 
-                                ? 'scale-125 shadow-sm p-1 bg-surface-container rounded-full' 
-                                : 'grayscale hover:grayscale-0'
+                                ? `scale-125 shadow-sm p-1.5 rounded-full border ${getMoodColorClass(emoji)}`
+                                : 'grayscale opacity-70 hover:grayscale-0 hover:opacity-100'
                             }`}
                           >
                             {emoji}
@@ -629,12 +685,12 @@ export default function TodayClient({
             <div className="p-6 bg-white border border-surface-container rounded-xl shadow-sm">
               <h4 className="font-headline font-bold text-on-surface mb-4">Completion Trends</h4>
               <div className="h-64 flex items-end justify-between px-4 pb-2 border-b border-outline-variant/30 gap-3">
-                {initialWeeklyTrends.length > 0 ? (
-                  initialWeeklyTrends.map((week, i) => (
+                {optimisticWeeklyTrends.length > 0 ? (
+                  optimisticWeeklyTrends.map((week, i) => (
                     <div
                       key={i}
-                      className={`flex-1 rounded-t-lg transition-all duration-500 ${
-                        i === initialWeeklyTrends.length - 1 ? 'bg-secondary' : 'bg-primary'
+                      className={`flex-1 rounded-t-lg transition-all duration-1000 ease-out flex flex-col justify-end ${
+                        i === optimisticWeeklyTrends.length - 1 ? 'bg-secondary shadow-md' : 'bg-primary/80 hover:bg-primary'
                       }`}
                       style={{ height: `${Math.max(week.percentage, 2)}%` }}
                       title={`${week.label}: ${week.percentage}%`}
@@ -647,8 +703,8 @@ export default function TodayClient({
                 )}
               </div>
               <div className="flex justify-between text-xs text-on-surface-variant mt-3 px-2">
-                {initialWeeklyTrends.map((week, i) => (
-                  <span key={i}>{week.label}</span>
+                {optimisticWeeklyTrends.map((week, i) => (
+                  <span key={i} className={i === optimisticWeeklyTrends.length - 1 ? 'font-bold text-secondary' : ''}>{week.label}</span>
                 ))}
               </div>
             </div>
@@ -747,9 +803,9 @@ export default function TodayClient({
             {moodHistory.length > 0 ? (
               <div className="grid grid-cols-7 sm:grid-cols-10 gap-3">
                 {moodHistory.map((entry, i) => (
-                  <div key={i} className="flex flex-col items-center gap-1 p-2 rounded-lg bg-surface-container-low border border-outline-variant/20">
-                    <span className="text-xl">{entry.emoji}</span>
-                    <span className="text-[9px] text-on-surface-variant font-medium">
+                  <div key={i} className={`flex flex-col items-center gap-1 p-2 rounded-lg border shadow-sm transition-all hover:scale-110 ${getMoodColorClass(entry.emoji)}`}>
+                    <span className="text-xl drop-shadow-sm">{entry.emoji}</span>
+                    <span className="text-[9px] font-medium opacity-80">
                       {new Date(entry.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </span>
                   </div>
@@ -777,17 +833,17 @@ export default function TodayClient({
               <span>Daily Streak</span>
             </div>
             <div className="divide-y divide-outline-variant/20">
-              {initialLeaderboard.length > 0 ? (
-                initialLeaderboard.map((entry, i) => {
+              {liveLeaderboard.length > 0 ? (
+                liveLeaderboard.map((entry, i) => {
                   const isCurrentUser = entry.userId === userId;
                   return (
-                    <div key={entry.userId} className={`px-6 py-4 flex justify-between items-center ${isCurrentUser ? 'bg-secondary-container/10' : ''}`}>
+                    <div key={entry.userId} className={`px-6 py-4 flex justify-between items-center transition-colors duration-500 ${isCurrentUser ? 'bg-secondary-container/10 border-l-4 border-secondary' : 'border-l-4 border-transparent'}`}>
                       <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                          i === 0 ? 'bg-yellow-100 text-yellow-700' :
-                          i === 1 ? 'bg-gray-100 text-gray-600' :
-                          i === 2 ? 'bg-orange-100 text-orange-700' :
-                          'bg-primary/20 text-primary'
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-sm transition-transform duration-500 ${isCurrentUser ? 'scale-110' : ''} ${
+                          i === 0 ? 'bg-gradient-to-br from-yellow-200 to-amber-400 text-amber-900 border border-amber-300' :
+                          i === 1 ? 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-900 border border-gray-300' :
+                          i === 2 ? 'bg-gradient-to-br from-orange-200 to-orange-400 text-orange-900 border border-orange-300' :
+                          'bg-primary/10 text-primary'
                         }`}>
                           {i + 1}
                         </div>
@@ -795,7 +851,7 @@ export default function TodayClient({
                           {isCurrentUser ? `${entry.name} (You)` : entry.name}
                         </span>
                       </div>
-                      <span className={`text-sm font-bold ${isCurrentUser ? 'font-extrabold text-primary' : 'text-primary'}`}>
+                      <span className={`text-sm font-bold transition-all duration-500 ${isCurrentUser ? 'font-extrabold text-primary scale-110' : 'text-primary'}`}>
                         {entry.streak} Days
                       </span>
                     </div>
