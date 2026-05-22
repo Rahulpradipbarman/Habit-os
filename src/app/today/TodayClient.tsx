@@ -63,8 +63,6 @@ export default function TodayClient({
   userName
 }: TodayClientProps) {
   const {
-    theme,
-    setTheme,
     activeTab,
     setActiveTab,
   } = useApp();
@@ -181,7 +179,7 @@ export default function TodayClient({
   );
   // Confetti helper
   const triggerConfetti = (element: HTMLElement) => {
-    const colors = theme === 'calm' ? ['#00685f', '#565e74', '#006387'] : ['#a53b29', '#006a67', '#c3a125'];
+    const colors = ['#00685f', '#565e74', '#006387'];
     const rect = element.getBoundingClientRect();
     
     for (let i = 0; i < 15; i++) {
@@ -339,40 +337,14 @@ export default function TodayClient({
           <header className={`flex flex-col md:flex-row md:items-center justify-between gap-6 px-6 lg:px-16 py-6 bg-surface shadow-sm border-b border-outline-variant/10 sticky top-0 z-20`}>
             <div>
               <h2 className="font-headline text-3xl font-extrabold text-on-surface">
-                {theme === 'calm' ? `Good morning, ${userName}` : `Good Morning, ${userName}!`}
+                Good morning, {userName}
               </h2>
               <p className="text-sm text-on-surface-variant font-medium mt-1">
-                {theme === 'calm' 
-                  ? "Welcome back to your workspace. Let\u2019s focus on progress."
-                  : `You\u2019ve reached ${completionPercentage}% of your daily goals. Keep the momentum!`
-                }
+                Welcome back to your workspace. Let’s focus on progress.
               </p>
             </div>
             
             <div className="flex items-center gap-4">
-              {/* Dynamic Progress Ring (Vibrant Theme Only) */}
-              {theme === 'vibrant' && dailyGoalTotal > 0 && (
-                <div className="relative w-16 h-16 transition-all duration-300">
-                  <svg className="w-full h-full transform -rotate-90">
-                    <circle className="text-surface-container-high" cx="32" cy="32" fill="transparent" r="26" stroke="currentColor" strokeWidth="6"></circle>
-                    <circle 
-                      className="text-primary rounded-full transition-all duration-1000" 
-                      cx="32" 
-                      cy="32" 
-                      fill="transparent" 
-                      r="26" 
-                      stroke="currentColor" 
-                      strokeDasharray="163" 
-                      strokeDashoffset={163 - (163 * completionPercentage) / 100} 
-                      strokeWidth="6"
-                    ></circle>
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center font-bold text-xs text-on-background">
-                    {completionPercentage}%
-                  </div>
-                </div>
-              )}
-
               {/* Search Bar */}
               <div className="hidden sm:flex items-center bg-surface-container rounded-full px-4 py-1.5 gap-2 border border-outline-variant/20 shadow-inner">
                 <span className="material-symbols-outlined text-on-surface-variant text-lg">search</span>
@@ -384,18 +356,6 @@ export default function TodayClient({
                   className="bg-transparent border-none focus:outline-none focus:ring-0 text-sm text-on-surface w-40"
                 />
               </div>
-
-              {/* Theme Toggle Button in Header (Quick Access) */}
-              <button 
-                onClick={() => setTheme(theme === 'calm' ? 'vibrant' : 'calm')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-outline-variant bg-surface-container-lowest text-primary font-bold hover:bg-surface-container shadow-sm active:scale-95 transition-all"
-                title="Toggle design style"
-              >
-                <span className="material-symbols-outlined text-base">style</span>
-                <span className="text-[10px] uppercase tracking-wide hidden lg:inline">
-                  {theme === 'calm' ? 'Vibrant theme' : 'Calm theme'}
-                </span>
-              </button>
             </div>
           </header>
 

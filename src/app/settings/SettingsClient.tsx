@@ -13,7 +13,6 @@ interface SettingsClientProps {
 }
 
 export default function SettingsClient({ userId, initialName, initialReminderTime }: SettingsClientProps) {
-  const { theme, setTheme } = useApp();
   const [userName, setUserName] = useState(initialName);
   const [notifications, setNotifications] = useState(!!initialReminderTime);
   const [goalCount, setGoalCount] = useState(4);
@@ -54,6 +53,7 @@ export default function SettingsClient({ userId, initialName, initialReminderTim
     setLoading(true);
     try {
       await logout();
+      window.location.href = '/';
     } catch (err: any) {
       alert(`Error logging out: ${err.message}`);
       setLoading(false);
@@ -69,44 +69,6 @@ export default function SettingsClient({ userId, initialName, initialReminderTim
         </header>
 
         <form onSubmit={handleSave} className="space-y-6">
-          {/* Interface Style Toggle */}
-          <div className="bg-white p-6 rounded-xl habit-card-shadow border border-outline-variant/20">
-            <h4 className="font-headline font-bold text-base text-on-surface mb-4">Interface Style</h4>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => setTheme('calm')}
-                className={`p-4 border text-left rounded-xl transition-all ${
-                  theme === 'calm'
-                    ? 'border-primary bg-secondary-container/20 text-primary font-bold shadow-sm'
-                    : 'border-outline-variant/30 hover:bg-surface-container-low text-on-surface-variant'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="material-symbols-outlined text-lg">spa</span>
-                  <span className="font-headline font-bold text-sm">Calm Authority</span>
-                </div>
-                <p className="text-[10px] opacity-80 leading-relaxed font-normal">Minimalist teal tone slate grid suited for focused structure.</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setTheme('vibrant')}
-                className={`p-4 border text-left rounded-xl transition-all ${
-                  theme === 'vibrant'
-                    ? 'border-primary bg-primary-container/10 text-primary font-bold shadow-sm'
-                    : 'border-outline-variant/30 hover:bg-surface-container-low text-on-surface-variant'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="material-symbols-outlined text-lg">bolt</span>
-                  <span className="font-headline font-bold text-sm">Vibrant Momentum</span>
-                </div>
-                <p className="text-[10px] opacity-80 leading-relaxed font-normal">Bouncy bento layouts, corals, mint buttons, and XP milestone metrics.</p>
-              </button>
-            </div>
-          </div>
 
           {/* Profile settings */}
           <div className="bg-white p-6 rounded-xl habit-card-shadow border border-outline-variant/20 space-y-4">
@@ -118,11 +80,7 @@ export default function SettingsClient({ userId, initialName, initialReminderTim
                 type="text" 
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
-                className={`w-full text-sm px-3 py-2 border outline-none bg-white ${
-                  theme === 'calm' 
-                    ? 'border-outline-variant rounded-lg focus:border-primary' 
-                    : 'border-transparent bg-surface-container-low rounded-lg focus:border-primary focus:bg-white'
-                }`}
+                className="w-full text-sm px-3 py-2 border outline-none bg-white border-outline-variant rounded-lg focus:border-primary"
               />
             </div>
 
@@ -133,11 +91,7 @@ export default function SettingsClient({ userId, initialName, initialReminderTim
                 min="1"
                 value={goalCount}
                 onChange={(e) => setGoalCount(parseInt(e.target.value) || 1)}
-                className={`w-full text-sm px-3 py-2 border outline-none bg-white ${
-                  theme === 'calm' 
-                    ? 'border-outline-variant rounded-lg focus:border-primary' 
-                    : 'border-transparent bg-surface-container-low rounded-lg focus:border-primary focus:bg-white'
-                }`}
+                className="w-full text-sm px-3 py-2 border outline-none bg-white border-outline-variant rounded-lg focus:border-primary"
               />
             </div>
           </div>
@@ -169,11 +123,7 @@ export default function SettingsClient({ userId, initialName, initialReminderTim
                 type="button" 
                 onClick={handleReset}
                 disabled={loading}
-                className={`px-4 py-2 border text-xs font-bold transition-all disabled:opacity-50 ${
-                  theme === 'calm'
-                    ? 'border-error text-error rounded-lg hover:bg-error/5 active:scale-95'
-                    : 'border-error text-error rounded-full hover:bg-error/5 hover:scale-102 active:scale-95'
-                }`}
+                className="px-4 py-2 border text-xs font-bold transition-all disabled:opacity-50 border-error text-error rounded-lg hover:bg-error/5 active:scale-95"
               >
                 Reset Data
               </button>
@@ -182,11 +132,7 @@ export default function SettingsClient({ userId, initialName, initialReminderTim
                 type="button" 
                 onClick={handleLogout}
                 disabled={loading}
-                className={`px-4 py-2 border text-xs font-bold transition-all disabled:opacity-50 ${
-                  theme === 'calm'
-                    ? 'border-outline-variant text-on-surface rounded-lg hover:bg-surface-container-low active:scale-95'
-                    : 'border-outline-variant text-on-surface rounded-full hover:bg-surface-container-low hover:scale-102 active:scale-95'
-                }`}
+                className="px-4 py-2 border text-xs font-bold transition-all disabled:opacity-50 border-outline-variant text-on-surface rounded-lg hover:bg-surface-container-low active:scale-95"
               >
                 Log Out
               </button>
@@ -195,11 +141,7 @@ export default function SettingsClient({ userId, initialName, initialReminderTim
             <button 
               type="submit" 
               disabled={loading}
-              className={`px-6 py-2.5 text-xs font-bold text-white transition-all shadow-md disabled:opacity-50 ${
-                theme === 'calm'
-                  ? 'bg-primary rounded-lg hover:opacity-95 active:scale-95'
-                  : 'bg-primary rounded-full hover:scale-105 active:scale-95 shadow-[0px_5px_15px_rgba(255,126,103,0.2)]'
-              }`}
+              className="px-6 py-2.5 text-xs font-bold text-white transition-all shadow-md disabled:opacity-50 bg-primary rounded-lg hover:opacity-95 active:scale-95"
             >
               {loading ? 'Saving...' : 'Save Settings'}
             </button>

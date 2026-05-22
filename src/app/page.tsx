@@ -1,49 +1,142 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
+import { HabitosHeroAccordion } from '@/components/ui/habitos-hero-accordion';
+import { getCurrentUserId, logout } from '@/app/actions/auth';
 
 export default function Home() {
-  const { theme, setTheme } = useApp();
+  const { activeTab } = useApp();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    getCurrentUserId().then(id => setIsLoggedIn(!!id));
+  }, []);
 
   return (
     <div className={`min-h-screen bg-background text-on-background font-sans transition-colors duration-300`}>
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white shadow-sm border-b border-outline-variant/10">
-        <nav className="flex justify-between items-center w-full px-6 py-4 max-w-[1440px] mx-auto">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-primary text-2xl font-bold">rocket_launch</span>
-            <span className="font-headline text-lg font-black text-primary">Habit OS</span>
+        <nav className="relative flex justify-between items-center w-full px-6 py-4 max-w-[1440px] mx-auto">
+          {/* LEFT: Logo */}
+          <div className="flex-1 flex justify-start">
+            <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+              <span className="material-symbols-outlined text-primary text-2xl font-bold">rocket_launch</span>
+              <span className="font-headline text-lg font-black text-primary">Habit OS</span>
+            </Link>
           </div>
           
-          <div className="hidden md:flex items-center gap-8">
+          {/* CENTER: Desktop Navigation */}
+          <div className="hidden md:flex items-center justify-center gap-8 absolute left-1/2 -translate-x-1/2">
             <a className="text-xs font-bold text-primary border-b-2 border-primary pb-0.5" href="#">Home</a>
             <Link className="text-xs font-bold text-on-surface-variant hover:text-primary transition-colors" href="/login">Habit Library</Link>
             <Link className="text-xs font-bold text-on-surface-variant hover:text-primary transition-colors" href="/login">Community</Link>
           </div>
 
-          <div className="flex items-center gap-4">
-            {/* Quick Theme Switcher */}
+          {/* RIGHT: Auth & Mobile Toggle */}
+          <div className="flex-1 flex justify-end items-center gap-4">
+            {isLoggedIn === null ? (
+              <div className="hidden sm:block w-24 h-9 bg-surface-container rounded-full animate-pulse"></div>
+            ) : isLoggedIn ? (
+              <div className="hidden md:flex items-center gap-4">
+                <Link 
+                  href="/today" 
+                  className="px-5 py-2 bg-primary text-white text-xs font-bold rounded-full shadow-sm hover:opacity-95 active:scale-95 transition-all"
+                >
+                  Go to Dashboard
+                </Link>
+                <button 
+                  onClick={async () => {
+                    await logout();
+                    setIsLoggedIn(false);
+                  }}
+                  className="px-4 py-2 border border-outline-variant/30 text-on-surface-variant text-xs font-bold rounded-full hover:bg-surface-container transition-all"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <div className="hidden md:flex items-center gap-4">
+                <Link 
+                  href="/login" 
+                  className="px-4 py-2 text-on-surface-variant text-xs font-bold hover:text-primary transition-all"
+                >
+                  Sign In
+                </Link>
+                <Link 
+                  href="/login" 
+                  className="px-5 py-2 bg-primary text-white text-xs font-bold rounded-full shadow-sm hover:opacity-95 active:scale-95 transition-all"
+                >
+                  Get Started
+                </Link>
+              </div>
+            )}
+
+            {/* Mobile Burger Toggle */}
             <button 
-              onClick={() => setTheme(theme === 'calm' ? 'vibrant' : 'calm')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-outline-variant bg-surface-container-lowest text-primary font-bold hover:bg-surface-container shadow-sm active:scale-95 transition-all text-xs"
-              title="Toggle design style"
+              className="md:hidden p-2 text-on-surface-variant hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded-lg"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={isMobileMenuOpen}
             >
-              <span className="material-symbols-outlined text-sm">style</span>
-              <span className="text-[10px] uppercase tracking-wide hidden sm:inline">
-                {theme === 'calm' ? 'Vibrant theme' : 'Calm theme'}
+              <span className="material-symbols-outlined text-2xl">
+                {isMobileMenuOpen ? 'close' : 'menu'}
               </span>
             </button>
-
-            <Link 
-              href="/login" 
-              className="px-5 py-2 bg-primary text-white text-xs font-bold rounded-full shadow-sm hover:opacity-95 active:scale-95 transition-all"
-            >
-              Get Started
-            </Link>
           </div>
         </nav>
+
+        {/* Mobile Menu Overlay */}
+        <div 
+          className={`md:hidden absolute top-full left-0 w-full bg-white border-b border-outline-variant/10 shadow-lg transition-all duration-300 ease-in-out origin-top overflow-hidden ${
+            isMobileMenuOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
+          }`}
+        >
+          <div className="flex flex-col px-6 py-4 gap-4">
+            <a className="text-sm font-bold text-primary" href="#">Home</a>
+            <Link className="text-sm font-bold text-on-surface-variant hover:text-primary transition-colors" href="/login">Habit Library</Link>
+            <Link className="text-sm font-bold text-on-surface-variant hover:text-primary transition-colors" href="/login">Community</Link>
+            
+            <hr className="border-outline-variant/10 my-2" />
+            
+            {isLoggedIn ? (
+              <div className="flex flex-col gap-3">
+                <Link 
+                  href="/today" 
+                  className="w-full text-center px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-lg shadow-sm hover:opacity-95 transition-all"
+                >
+                  Go to Dashboard
+                </Link>
+                <button 
+                  onClick={async () => {
+                    await logout();
+                    setIsLoggedIn(false);
+                  }}
+                  className="w-full px-5 py-2.5 border border-outline-variant/30 text-on-surface-variant text-sm font-bold rounded-lg hover:bg-surface-container transition-all"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <Link 
+                  href="/login" 
+                  className="w-full text-center px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-lg shadow-sm hover:opacity-95 transition-all"
+                >
+                  Get Started
+                </Link>
+                <Link 
+                  href="/login" 
+                  className="w-full text-center px-5 py-2.5 border border-outline-variant/30 text-on-surface-variant text-sm font-bold rounded-lg hover:bg-surface-container transition-all"
+                >
+                  Sign In
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
       </header>
 
       {/* Main Canvas */}
@@ -66,12 +159,21 @@ export default function Home() {
             </p>
 
             <div className="flex flex-wrap gap-4 pt-2">
-              <Link 
-                href="/login"
-                className="px-8 py-3 bg-primary text-white rounded-full font-bold text-xs hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
-              >
-                Get Started Free
-              </Link>
+              {isLoggedIn ? (
+                <Link 
+                  href="/today"
+                  className="px-8 py-3 bg-primary text-white rounded-full font-bold text-xs hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
+                >
+                  Go to Dashboard
+                </Link>
+              ) : (
+                <Link 
+                  href="/login"
+                  className="px-8 py-3 bg-primary text-white rounded-full font-bold text-xs hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
+                >
+                  Get Started Free
+                </Link>
+              )}
               <a 
                 href="#how-it-works"
                 className="px-6 py-3 bg-surface-container-high text-on-surface rounded-full font-bold text-xs hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 border border-outline-variant/30"
@@ -82,56 +184,8 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Hero Illustration / Bento Hybrid */}
-          <div className="flex-1 relative w-full aspect-square md:aspect-auto md:h-[460px] max-w-[500px]">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary-container/10 to-secondary-container/10 rounded-2xl border border-outline-variant/20"></div>
-            
-            {/* Bento Mockup Elements Grid */}
-            <div className="absolute inset-4 grid grid-cols-6 grid-rows-6 gap-3">
-              
-              {/* Card 1: Streak Count */}
-              <div className="col-span-4 row-span-3 bg-white rounded-xl p-5 shadow-md flex flex-col justify-between border border-outline-variant/10">
-                <div className="flex justify-between items-center">
-                  <span className="material-symbols-outlined text-primary p-1 bg-primary/15 rounded-full text-base">local_fire_department</span>
-                  <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">STREAK</span>
-                </div>
-                <div className="mt-2">
-                  <div className="font-headline text-3xl font-extrabold text-on-surface">14</div>
-                  <div className="text-[10px] text-on-surface-variant font-medium">Days consistent</div>
-                </div>
-              </div>
-
-              {/* Card 2: Drink Water Habit */}
-              <div className="col-span-2 row-span-2 bg-secondary-container text-on-secondary-container rounded-xl p-3 shadow-sm flex flex-col items-center justify-center gap-1 text-center">
-                <span className="material-symbols-outlined text-2xl">water_drop</span>
-                <span className="text-[9px] font-bold tracking-tight">Drink Water</span>
-              </div>
-
-              {/* Card 3: Meditate Habit */}
-              <div className="col-span-2 row-span-2 bg-tertiary-container/30 text-on-tertiary-container rounded-xl p-3 shadow-sm flex flex-col items-center justify-center gap-1 text-center">
-                <span className="material-symbols-outlined text-2xl">self_improvement</span>
-                <span className="text-[9px] font-bold tracking-tight">Meditate</span>
-              </div>
-
-              {/* Card 4: Progress Ring */}
-              <div className="col-span-3 row-span-3 bg-white rounded-xl p-4 shadow-md flex flex-col items-center justify-center border border-outline-variant/10">
-                <div className="relative w-18 h-18">
-                  <svg className="w-full h-full transform -rotate-90">
-                    <circle className="text-surface-container-high" cx="36" cy="36" fill="transparent" r="30" stroke="currentColor" strokeWidth="6"></circle>
-                    <circle className="text-secondary rounded-full" cx="36" cy="36" fill="transparent" r="30" stroke="currentColor" strokeDasharray="188.4" strokeDashoffset="47.1" strokeWidth="6"></circle>
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center font-headline font-bold text-xs text-on-surface">75%</div>
-                </div>
-                <span className="mt-2 text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">Today's Goal</span>
-              </div>
-
-              {/* Card 5: Points Total */}
-              <div className="col-span-3 row-span-1 bg-primary text-white rounded-xl flex items-center justify-center gap-1.5 p-2 shadow-sm">
-                <span className="material-symbols-outlined text-sm">stars</span>
-                <span className="text-[9px] font-bold uppercase tracking-wider">340 Points Today</span>
-              </div>
-            </div>
-          </div>
+          {/* Hero Illustration / Bento Hybrid (Replaced with Accordion) */}
+          <HabitosHeroAccordion />
         </section>
 
         {/* Features Bento Section */}
@@ -238,12 +292,21 @@ export default function Home() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-3 relative z-10 w-full justify-center max-w-xs">
-              <Link 
-                href="/login"
-                className="px-6 py-2.5 bg-white text-primary rounded-full font-bold text-xs hover:scale-105 active:scale-95 transition-all text-center"
-              >
-                Create My Routine
-              </Link>
+              {isLoggedIn ? (
+                <Link 
+                  href="/today"
+                  className="px-6 py-2.5 bg-white text-primary rounded-full font-bold text-xs hover:scale-105 active:scale-95 transition-all text-center"
+                >
+                  Go to Dashboard
+                </Link>
+              ) : (
+                <Link 
+                  href="/login"
+                  className="px-6 py-2.5 bg-white text-primary rounded-full font-bold text-xs hover:scale-105 active:scale-95 transition-all text-center"
+                >
+                  Create My Routine
+                </Link>
+              )}
               <Link 
                 href="/login"
                 className="px-6 py-2.5 bg-transparent border-2 border-white/40 hover:border-white text-white rounded-full font-bold text-xs transition-all text-center"

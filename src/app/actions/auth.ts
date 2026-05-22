@@ -28,7 +28,7 @@ export async function signup(email: string, name: string, password: string) {
   
   const cookieStore = await cookies();
   cookieStore.set('user_id', data.id, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 7 })
-  redirect('/today')
+  return { success: true }
 }
 
 export async function login(email: string, password: string) {
@@ -54,13 +54,13 @@ export async function login(email: string, password: string) {
   
   const cookieStore = await cookies();
   cookieStore.set('user_id', data.id, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 7 })
-  redirect('/today')
+  return { success: true }
 }
 
 export async function logout() {
   const cookieStore = await cookies();
   cookieStore.delete('user_id')
-  redirect('/')
+  return { success: true }
 }
 
 export async function getCurrentUserId(): Promise<string | null> {

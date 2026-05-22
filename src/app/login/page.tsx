@@ -2,12 +2,12 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
 import { login, signup } from '@/app/actions/auth';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { theme } = useApp();
   const [authType, setAuthType] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -21,20 +21,21 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      let res;
       if (authType === 'signin') {
-        const res = await login(email, password);
-        if (res && res.error) {
-          setError(res.error);
-        }
+        res = await login(email, password);
       } else {
-        const res = await signup(email, name, password);
-        if (res && res.error) {
-          setError(res.error);
-        }
+        res = await signup(email, name, password);
+      }
+      
+      if (res && res.error) {
+        setError(res.error);
+        setLoading(false);
+      } else if (res && res.success) {
+        router.push('/today');
       }
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred');
-    } finally {
       setLoading(false);
     }
   };
@@ -58,7 +59,7 @@ export default function LoginPage() {
             
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-8">
-                <span className="font-headline text-xl font-extrabold tracking-tight">Habit OS</span>
+                <Link href="/" className="font-headline text-xl font-extrabold tracking-tight hover:opacity-80 transition-opacity">Habit OS</Link>
               </div>
               <h1 className="font-headline text-3xl font-extrabold leading-tight">
                 A workspace that feels like a clean slate every morning.
@@ -83,7 +84,7 @@ export default function LoginPage() {
           <section className="flex flex-col p-8 md:p-12 justify-center bg-white">
             {/* Mobile Header */}
             <div className="md:hidden flex items-center gap-2 mb-6">
-              <span className="text-primary font-headline text-xl font-bold tracking-tight">Habit OS</span>
+              <Link href="/" className="text-primary font-headline text-xl font-bold tracking-tight hover:opacity-80 transition-opacity">Habit OS</Link>
             </div>
 
             {/* Toggle Selector */}
@@ -169,9 +170,16 @@ export default function LoginPage() {
                 <button 
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-primary text-white rounded-xl font-headline font-bold text-sm shadow-md hover:shadow-lg active:scale-95 transition-all mt-2 disabled:opacity-50"
+                  className="w-full py-3 bg-primary text-white rounded-xl font-headline font-bold text-sm shadow-md hover:shadow-lg active:scale-95 transition-all mt-2 disabled:opacity-70 flex items-center justify-center gap-2"
                 >
-                  {loading ? 'Processing...' : (authType === 'signin' ? 'Sign In' : 'Create Account')}
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      {authType === 'signin' ? 'Signing in...' : 'Creating account...'}
+                    </>
+                  ) : (
+                    authType === 'signin' ? 'Sign In' : 'Create Account'
+                  )}
                 </button>
               </form>
 
