@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs'
 
 const SALT_ROUNDS = 10
 
-export async function signup(email: string, name: string, password: string) {
+export async function signup(email: string, name: string, password: string, timezone?: string) {
   // Validate inputs
   if (!email || !password) return { error: 'Email and password are required' }
   if (password.length < 6) return { error: 'Password must be at least 6 characters' }
@@ -16,9 +16,15 @@ export async function signup(email: string, name: string, password: string) {
 
   const passwordHash = await bcrypt.hash(password, SALT_ROUNDS)
 
+  let userTz = timezone;
+  if (!userTz) {
+    console.warn("Timezone missing for user during signup. Falling back to UTC.");
+    userTz = 'UTC';
+  }
+
   const { data, error } = await supabase
     .from('users')
-    .insert({ email, name, password_hash: passwordHash })
+    .insert({ email, name, password_hash: passwordHash, timezone: userTz })
     .select()
     .single()
   if (error || !data) {
@@ -31,12 +37,12 @@ export async function signup(email: string, name: string, password: string) {
   return { success: true }
 }
 
-export async function login(email: string, password: string) {
+export async function login(email: string, password: string, timezone?: string) {
   if (!email || !password) return { error: 'Email and password are required' }
 
   const { data, error } = await supabase
     .from('users')
-    .select('id, password_hash')
+    .select('id, password_hash, timezone')
     .eq('email', email)
     .single()
 
@@ -52,6 +58,11 @@ export async function login(email: string, password: string) {
   const isValid = await bcrypt.compare(password, data.password_hash)
   if (!isValid) return { error: 'Incorrect password' }
   
+  // Update timezone if it has changed
+  if (timezone && data.timezone !== timezone) {
+    await supabase.from('users').update({ timezone }).eq('id', data.id)
+  }
+
   const cookieStore = await cookies();
   cookieStore.set('user_id', data.id, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 60 * 60 * 24 * 7 })
   return { success: true }

@@ -7,6 +7,7 @@ create table users (
   password_hash text not null,
   name text,
   reminder_time text,
+  timezone text,
   created_at timestamptz default now()
 );
 

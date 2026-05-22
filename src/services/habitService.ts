@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { getLocalDate, addDays } from '@/app/today/dateUtils'
 
 export async function getHabits(userId: string) {
   const { data, error } = await supabase
@@ -53,20 +54,20 @@ export async function toggleHabitLog(habitId: string, date: string, completed: b
   return data
 }
 
-export async function getLogs90Days(userId: string) {
-  const from = new Date()
-  from.setDate(from.getDate() - 90)
+export async function getLogs90Days(userId: string, tz: string) {
+  const todayStr = getLocalDate(tz);
+  const fromStr = addDays(todayStr, -90);
   const { data, error } = await supabase
     .from('habit_logs')
     .select('*, habits!inner(user_id)')
     .eq('habits.user_id', userId)
-    .gte('date', from.toISOString().split('T')[0])
+    .gte('date', fromStr)
   if (error) throw new Error(error.message)
   return data
 }
 
-export async function calculateStreaks(userId: string) {
-  const logs = await getLogs90Days(userId)
+export async function calculateStreaks(userId: string, tz: string) {
+  const logs = await getLogs90Days(userId, tz)
   const habits = await getHabits(userId)
   return habits.map(habit => {
     const habitLogs = logs
@@ -92,10 +93,11 @@ export async function calculateStreaks(userId: string) {
   })
 }
 
-export async function getWeeklyInsight(userId: string) {
-  const now = new Date()
-  const week = Math.ceil(now.getDate() / 7)
-  const year = now.getFullYear()
+export async function getWeeklyInsight(userId: string, tz: string) {
+  const todayStr = getLocalDate(tz);
+  const d = new Date(todayStr + 'T12:00:00Z');
+  const week = Math.ceil(d.getUTCDate() / 7)
+  const year = d.getUTCFullYear()
   const { data } = await supabase
     .from('ai_insights')
     .select('*')
@@ -107,21 +109,16 @@ export async function getWeeklyInsight(userId: string) {
 }
 
 // Real weekly completion trends for the last 5 weeks
-export async function getWeeklyCompletionTrends(userId: string) {
+export async function getWeeklyCompletionTrends(userId: string, tz: string) {
   const habits = await getHabits(userId)
   if (habits.length === 0) return []
 
-  const now = new Date()
+  const todayStr = getLocalDate(tz)
   const weeks: { label: string; percentage: number }[] = []
 
   for (let w = 4; w >= 0; w--) {
-    const weekEnd = new Date(now)
-    weekEnd.setDate(now.getDate() - w * 7)
-    const weekStart = new Date(weekEnd)
-    weekStart.setDate(weekEnd.getDate() - 6)
-
-    const startStr = weekStart.toISOString().split('T')[0]
-    const endStr = weekEnd.toISOString().split('T')[0]
+    const endStr = addDays(todayStr, -(w * 7));
+    const startStr = addDays(endStr, -6);
 
     const { data: logs } = await supabase
       .from('habit_logs')
@@ -134,7 +131,8 @@ export async function getWeeklyCompletionTrends(userId: string) {
     const totalPossible = habits.length * 7
     const percentage = totalPossible > 0 ? Math.round((completedCount / totalPossible) * 100) : 0
 
-    const weekNum = Math.ceil(weekStart.getDate() / 7)
+    const d = new Date(startStr + 'T12:00:00Z')
+    const weekNum = Math.ceil(d.getUTCDate() / 7)
     weeks.push({
       label: w === 0 ? 'Current' : `Week ${weekNum}`,
       percentage
@@ -145,13 +143,12 @@ export async function getWeeklyCompletionTrends(userId: string) {
 }
 
 // Real completion rate grouped by habit category (Morning/Afternoon/Evening/All day)
-export async function getCategoryBreakdown(userId: string) {
+export async function getCategoryBreakdown(userId: string, tz: string) {
   const habits = await getHabits(userId)
   if (habits.length === 0) return []
 
-  const sevenDaysAgo = new Date()
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-  const startStr = sevenDaysAgo.toISOString().split('T')[0]
+  const todayStr = getLocalDate(tz)
+  const startStr = addDays(todayStr, -7)
 
   const { data: logs } = await supabase
     .from('habit_logs')
@@ -175,17 +172,15 @@ export async function getCategoryBreakdown(userId: string) {
 }
 
 // Real weekly success rate (last 7 days)
-export async function getWeeklySuccessRate(userId: string) {
+export async function getWeeklySuccessRate(userId: string, tz: string) {
   const habits = await getHabits(userId)
   if (habits.length === 0) return { current: 0, previous: 0 }
 
-  const now = new Date()
+  const todayStr = getLocalDate(tz)
 
   // Current week
-  const currentStart = new Date(now)
-  currentStart.setDate(now.getDate() - 6)
-  const currentStartStr = currentStart.toISOString().split('T')[0]
-  const currentEndStr = now.toISOString().split('T')[0]
+  const currentEndStr = todayStr
+  const currentStartStr = addDays(todayStr, -6)
 
   const { data: currentLogs } = await supabase
     .from('habit_logs')
@@ -199,17 +194,15 @@ export async function getWeeklySuccessRate(userId: string) {
   const current = totalPossible > 0 ? Math.round((currentCompleted / totalPossible) * 100) : 0
 
   // Previous week
-  const prevEnd = new Date(currentStart)
-  prevEnd.setDate(prevEnd.getDate() - 1)
-  const prevStart = new Date(prevEnd)
-  prevStart.setDate(prevEnd.getDate() - 6)
+  const prevEndStr = addDays(currentStartStr, -1)
+  const prevStartStr = addDays(prevEndStr, -6)
 
   const { data: prevLogs } = await supabase
     .from('habit_logs')
     .select('*, habits!inner(user_id)')
     .eq('habits.user_id', userId)
-    .gte('date', prevStart.toISOString().split('T')[0])
-    .lte('date', prevEnd.toISOString().split('T')[0])
+    .gte('date', prevStartStr)
+    .lte('date', prevEndStr)
 
   const prevCompleted = prevLogs ? prevLogs.filter(l => l.completed).length : 0
   const previous = totalPossible > 0 ? Math.round((prevCompleted / totalPossible) * 100) : 0
@@ -221,7 +214,7 @@ export async function getWeeklySuccessRate(userId: string) {
 export async function getLeaderboard() {
   const { data: users } = await supabase
     .from('users')
-    .select('id, name')
+    .select('id, name, timezone')
 
   if (!users || users.length === 0) return []
 
@@ -229,7 +222,12 @@ export async function getLeaderboard() {
 
   for (const user of users) {
     try {
-      const streaks = await calculateStreaks(user.id)
+      let tz = user.timezone;
+      if (!tz) {
+        console.warn(`[WARNING] Timezone missing for user ${user.id} in leaderboard. Falling back to UTC.`);
+        tz = 'UTC';
+      }
+      const streaks = await calculateStreaks(user.id, tz)
       const bestStreak = streaks.length > 0 ? Math.max(...streaks.map(s => s.current), 0) : 0
       leaderboard.push({
         userId: user.id,

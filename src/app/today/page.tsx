@@ -13,6 +13,7 @@ import {
   getWeeklySuccessRate,
   getLeaderboard
 } from '@/services/habitService';
+import { getLocalDate, getTimeBasedGreeting } from '@/app/today/dateUtils';
 import { supabase } from '@/lib/supabase';
 
 export const metadata: Metadata = {
@@ -22,7 +23,25 @@ export const metadata: Metadata = {
 
 export default async function TodayPage() {
   const userId = await requireAuth();
-  const todayStr = new Date().toISOString().split('T')[0];
+
+  const { data: userData } = await supabase.from('users').select('name, timezone').eq('id', userId).single();
+  const userName = userData?.name || 'User';
+  let userTimezone = userData?.timezone;
+  
+  if (!userTimezone) {
+    console.warn(`[WARNING] Timezone missing for user ${userId} in database. Falling back to UTC temporarily.`);
+    userTimezone = 'UTC';
+  }
+
+  // Calculate todayStr using the user's timezone
+  const todayStr = new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    timeZone: userTimezone,
+  }).format(new Date());
+
+  const greeting = getTimeBasedGreeting(userTimezone);
 
   const [
     habits,
@@ -37,22 +56,21 @@ export default async function TodayPage() {
   ] = await Promise.all([
     getHabits(userId),
     getTodayLogs(userId, todayStr),
-    calculateStreaks(userId),
-    getWeeklyInsight(userId),
-    getLogs90Days(userId),
-    getWeeklyCompletionTrends(userId),
-    getCategoryBreakdown(userId),
-    getWeeklySuccessRate(userId),
+    calculateStreaks(userId, userTimezone),
+    getWeeklyInsight(userId, userTimezone),
+    getLogs90Days(userId, userTimezone),
+    getWeeklyCompletionTrends(userId, userTimezone),
+    getCategoryBreakdown(userId, userTimezone),
+    getWeeklySuccessRate(userId, userTimezone),
     getLeaderboard()
   ]);
-
-  const { data: userData } = await supabase.from('users').select('name').eq('id', userId).single();
-  const userName = userData?.name || 'User';
 
   return (
     <TodayClient
       userId={userId}
       todayStr={todayStr}
+      userTimezone={userTimezone}
+      greeting={greeting}
       initialHabits={habits}
       initialTodayLogs={todayLogs}
       initialStreaks={streaks}

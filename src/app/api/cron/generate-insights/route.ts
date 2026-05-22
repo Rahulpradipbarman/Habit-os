@@ -26,16 +26,13 @@ export async function GET(request: Request) {
     // 1. Fetch all users
     const { data: users, error: usersError } = await supabase
       .from('users')
-      .select('id, name, email')
+      .select('id, name, email, timezone')
     
     if (usersError) throw new Error(usersError.message)
     if (!users || users.length === 0) {
       return NextResponse.json({ message: 'No users found' })
     }
 
-    const now = new Date()
-    const week = Math.ceil(now.getDate() / 7)
-    const year = now.getFullYear()
     const results = []
 
     for (const user of users) {
@@ -47,6 +44,21 @@ export async function GET(request: Request) {
           results.push({ userId: user.id, status: 'skipped_invalid_email' });
           continue;
         }
+
+        let tz = user.timezone;
+        if (!tz) {
+          console.warn(`[WARNING] Timezone missing for user ${user.id} in cron. Falling back to UTC.`);
+          tz = 'UTC';
+        }
+        
+        // Use user's local date to figure out week and year
+        const userNow = new Date();
+        const userTodayStr = new Intl.DateTimeFormat('en-CA', {
+          year: 'numeric', month: '2-digit', day: '2-digit', timeZone: tz
+        }).format(userNow);
+        const userTodayDate = new Date(userTodayStr);
+        const week = Math.ceil(userTodayDate.getDate() / 7);
+        const year = userTodayDate.getFullYear();
 
         // 2. Fetch user's active habits
         const { data: habits } = await supabase
@@ -64,7 +76,9 @@ export async function GET(request: Request) {
         // 3. Fetch logs for the last 7 days & streaks
         const sevenDaysAgo = new Date()
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-        const formattedDate = sevenDaysAgo.toISOString().split('T')[0]
+        const formattedDate = new Intl.DateTimeFormat('en-CA', {
+          year: 'numeric', month: '2-digit', day: '2-digit', timeZone: tz
+        }).format(sevenDaysAgo);
         
         const { data: logs } = await supabase
           .from('habit_logs')
@@ -79,7 +93,7 @@ export async function GET(request: Request) {
           return `- ${h.name}: Completed ${completed}/${total} days.`
         }).join('\n')
 
-        const streaks = await calculateStreaks(user.id)
+        const streaks = await calculateStreaks(user.id, tz)
         const streakSummary = streaks.map(s => `- ${s.name}: Current streak ${s.current} days, longest ${s.longest} days.`).join('\n')
 
         let insightText = ''

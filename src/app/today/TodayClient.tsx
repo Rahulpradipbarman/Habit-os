@@ -8,6 +8,8 @@ import HabitModal from '@/components/HabitModal';
 import InsightBanner from '@/components/InsightBanner';
 import { toggleHabitLogAction, deleteHabitAction, createHabitAction, saveMoodAction } from '@/app/actions/habitActions';
 import { Habit } from '@/context/AppContext';
+import { getLocalDate, addDays, formatLocalDate, formatLocalTime } from '@/app/today/dateUtils';
+import { useRouter } from 'next/navigation';
 
 interface WeekTrend {
   label: string;
@@ -28,6 +30,8 @@ interface LeaderboardEntry {
 interface TodayClientProps {
   userId: string;
   todayStr: string;
+  userTimezone: string;
+  greeting: string;
   initialHabits: any[];
   initialTodayLogs: any[];
   initialStreaks: any[];
@@ -51,6 +55,8 @@ const getMoodFromLogs = (logs: any[]) => {
 export default function TodayClient({
   userId,
   todayStr,
+  userTimezone,
+  greeting,
   initialHabits,
   initialTodayLogs,
   initialStreaks,
@@ -71,6 +77,29 @@ export default function TodayClient({
   const [activeSearch, setActiveSearch] = useState('');
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Temporary debugging logs requested by user
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('=== TIMEZONE DEBUG ===');
+      console.log('Stored Timezone:', userTimezone);
+      console.log('Local Formatted Time:', formatLocalTime(new Date(), userTimezone));
+      console.log('UTC Time:', new Date().toUTCString());
+      console.log('Browser Timezone:', Intl.DateTimeFormat().resolvedOptions().timeZone);
+      console.log('======================');
+    }
+
+    const now = new Date();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const msUntilMidnight = midnight.getTime() - now.getTime();
+    
+    const timer = setTimeout(() => {
+      router.refresh();
+    }, msUntilMidnight);
+    
+    return () => clearTimeout(timer);
+  }, [router, userTimezone]);
 
   const handleOpenEditModal = (habit: Habit) => {
     setEditingHabit(habit);
@@ -129,18 +158,16 @@ export default function TodayClient({
 
   const heatmapData = React.useMemo(() => {
     const data = [];
-    const today = new Date();
-    const startOffset = today.getDay(); // days since Sunday
+    const d = new Date(todayStr + 'T12:00:00Z');
+    const startOffset = d.getUTCDay(); // days since Sunday
     const totalDays = 13 * 7; // 91 days (13 weeks)
-    const startDate = new Date();
-    startDate.setDate(today.getDate() - (totalDays - 1) - startOffset);
+    
+    const startDateStr = addDays(todayStr, -(totalDays - 1) - startOffset);
 
     for (let i = 0; i < totalDays; i++) {
-      const d = new Date(startDate);
-      d.setDate(startDate.getDate() + i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = addDays(startDateStr, i);
       
-      const isFuture = d > today;
+      const isFuture = dateStr > todayStr;
       
       const dayLogs = initialLogs90Days.filter(
         log => log.date === dateStr && log.completed && !log.habits?.name?.startsWith('__mood_')
@@ -343,18 +370,16 @@ export default function TodayClient({
   // Weekly day-by-day bars for the summary card (last 7 days from real data)
   const weekDayBars = React.useMemo(() => {
     const bars = [];
-    const today = new Date();
     for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = addDays(todayStr, -i);
       const dayLogs = initialLogs90Days.filter(
         log => log.date === dateStr && log.completed && !log.habits?.name?.startsWith('__mood_')
       );
       const completedCount = dateStr === todayStr ? dailyGoalCompleted : dayLogs.length;
       const ratio = dailyGoalTotal > 0 ? completedCount / dailyGoalTotal : 0;
+      const d = new Date(dateStr + 'T12:00:00Z');
       bars.push({
-        day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()],
+        day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getUTCDay()],
         ratio: Math.min(ratio, 1),
       });
     }
@@ -393,7 +418,7 @@ export default function TodayClient({
           <header className={`flex flex-col md:flex-row md:items-center justify-between gap-6 px-6 lg:px-16 py-6 bg-surface shadow-sm border-b border-outline-variant/10 sticky top-0 z-20`}>
             <div>
               <h2 className="font-headline text-3xl font-extrabold text-on-surface">
-                Good morning, {userName}
+                {greeting}, {userName} <span className="text-lg font-medium text-on-surface-variant opacity-70">({userTimezone})</span>
               </h2>
               <p className="text-sm text-on-surface-variant font-medium mt-1">
                 Welcome back to your workspace. Let’s focus on progress.
@@ -806,7 +831,7 @@ export default function TodayClient({
                   <div key={i} className={`flex flex-col items-center gap-1 p-2 rounded-lg border shadow-sm transition-all hover:scale-110 ${getMoodColorClass(entry.emoji)}`}>
                     <span className="text-xl drop-shadow-sm">{entry.emoji}</span>
                     <span className="text-[9px] font-medium opacity-80">
-                      {new Date(entry.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      {formatLocalDate(entry.date, userTimezone)}
                     </span>
                   </div>
                 ))}

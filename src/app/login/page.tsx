@@ -21,11 +21,12 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      const clientTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       let res;
       if (authType === 'signin') {
-        res = await login(email, password);
+        res = await login(email, password, clientTz);
       } else {
-        res = await signup(email, name, password);
+        res = await signup(email, name, password, clientTz);
       }
       
       if (res && res.error) {
