@@ -41,15 +41,13 @@ interface TodayClientProps {
   initialCategoryBreakdown: CategoryStat[];
   initialWeeklySuccess: { current: number; previous: number };
   initialLeaderboard: LeaderboardEntry[];
+  initialMoodLogs90Days: any[];
   userName: string;
 }
 
-const getMoodFromLogs = (logs: any[]) => {
-  const moodLog = logs.find(log => log.completed && log.habits?.name?.startsWith('__mood_'));
-  if (moodLog) {
-    return moodLog.habits.name.replace('__mood_', '').replace('__', '');
-  }
-  return '';
+const getMoodFromLogs = (moodLogs: any[], dateStr: string) => {
+  const log = moodLogs.find(log => log.date === dateStr);
+  return log ? log.emoji : '';
 };
 
 export default function TodayClient({
@@ -66,6 +64,7 @@ export default function TodayClient({
   initialCategoryBreakdown,
   initialWeeklySuccess,
   initialLeaderboard,
+  initialMoodLogs90Days,
   userName
 }: TodayClientProps) {
   const {
@@ -162,7 +161,7 @@ export default function TodayClient({
     const startOffset = d.getUTCDay(); // days since Sunday
     const totalDays = 13 * 7; // 91 days (13 weeks)
     
-    const startDateStr = addDays(todayStr, -(totalDays - 1) - startOffset);
+    const startDateStr = addDays(todayStr, -startOffset - 84);
 
     for (let i = 0; i < totalDays; i++) {
       const dateStr = addDays(startDateStr, i);
@@ -170,7 +169,7 @@ export default function TodayClient({
       const isFuture = dateStr > todayStr;
       
       const dayLogs = initialLogs90Days.filter(
-        log => log.date === dateStr && log.completed && !log.habits?.name?.startsWith('__mood_')
+        log => log.date === dateStr && log.completed
       );
       const completedCount = dateStr === todayStr ? dailyGoalCompleted : dayLogs.length;
       
@@ -193,11 +192,26 @@ export default function TodayClient({
         level,
       });
     }
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('=== HEATMAP DEBUG ===');
+      console.log('Raw habit_logs count (90 days):', initialLogs90Days.length);
+      console.log('Raw habit_logs count (completed):', initialLogs90Days.filter(l => l.completed).length);
+      
+      const countsByDate: Record<string, number> = {};
+      initialLogs90Days.filter(l => l.completed).forEach(l => {
+        countsByDate[l.date] = (countsByDate[l.date] || 0) + 1;
+      });
+      console.log('Grouped daily completion totals:', countsByDate);
+      console.log('Heatmap Data Map (sample):', data.filter(d => d.count > 0 || d.date === todayStr));
+      console.log('======================');
+    }
+
     return data;
   }, [initialLogs90Days, todayStr, dailyGoalCompleted]);
 
   // Mood selector state (optimistic)
-  const initialMood = getMoodFromLogs(initialTodayLogs);
+  const initialMood = getMoodFromLogs(initialMoodLogs90Days, todayStr);
   const [currentMood, setCurrentMood] = useState(initialMood);
   const moodEmojis = ['☀️', '🌤️', '😊', '😐', '😔'];
 
@@ -223,21 +237,20 @@ export default function TodayClient({
     }
   };
 
-  // Extract mood history from 90-day logs + optimistic current day
+  // Extract mood history from 90-day mood logs + optimistic current day
   const moodHistory = React.useMemo(() => {
     const moods: { date: string; emoji: string }[] = [];
-    const moodLogs = initialLogs90Days.filter(
-      log => log.completed && log.habits?.name?.startsWith('__mood_') && log.date !== todayStr
+    const moodLogs = initialMoodLogs90Days.filter(
+      log => log.date !== todayStr
     );
     for (const log of moodLogs) {
-      const emoji = log.habits.name.replace('__mood_', '').replace('__', '');
-      moods.push({ date: log.date, emoji });
+      moods.push({ date: log.date, emoji: log.emoji });
     }
     if (currentMood) {
       moods.push({ date: todayStr, emoji: currentMood });
     }
     return moods.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
-  }, [initialLogs90Days, currentMood, todayStr]);
+  }, [initialMoodLogs90Days, currentMood, todayStr]);
   // Confetti helper
   const triggerConfetti = (element: HTMLElement) => {
     const colors = ['#00685f', '#565e74', '#006387'];
@@ -373,7 +386,7 @@ export default function TodayClient({
     for (let i = 6; i >= 0; i--) {
       const dateStr = addDays(todayStr, -i);
       const dayLogs = initialLogs90Days.filter(
-        log => log.date === dateStr && log.completed && !log.habits?.name?.startsWith('__mood_')
+        log => log.date === dateStr && log.completed
       );
       const completedCount = dateStr === todayStr ? dailyGoalCompleted : dayLogs.length;
       const ratio = dailyGoalTotal > 0 ? completedCount / dailyGoalTotal : 0;
@@ -529,18 +542,18 @@ export default function TodayClient({
 
                   {filteredHabits.length === 0 ? (
                     <div className="text-center py-12 px-4 border border-dashed border-outline-variant/60 rounded-xl bg-surface-container-low/40">
-                      <span className="material-symbols-outlined text-5xl text-outline-variant/80 mb-3">checklist</span>
-                      <h5 className="font-headline text-base font-bold text-on-surface">No habits tracked</h5>
+                      <span className="material-symbols-outlined text-5xl text-outline-variant/60 mb-3 font-light">playlist_add_check_circle</span>
+                      <h5 className="font-headline text-base font-medium text-on-surface">No habits tracked</h5>
                       <p className="text-xs text-on-surface-variant mt-1 max-w-xs mx-auto">
                         {activeSearch 
                           ? "We couldn't find any habits matching your search terms."
-                          : "Establish morning meditations, hydration targets, or daily reading schedules by adding your first habit!"
+                          : "Your consistency journey starts today. Add a habit to begin."
                         }
                       </p>
                       {!activeSearch && (
                         <button 
                           onClick={() => { setEditingHabit(null); setIsModalOpen(true); }}
-                          className="mt-4 px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-sm hover:opacity-90 active:scale-95 transition-all"
+                          className="mt-6 px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-full shadow-sm hover:opacity-90 active:scale-95 transition-all"
                         >
                           Create Habit
                         </button>
@@ -712,24 +725,42 @@ export default function TodayClient({
               <div className="h-64 flex items-end justify-between px-4 pb-2 border-b border-outline-variant/30 gap-3">
                 {optimisticWeeklyTrends.length > 0 ? (
                   optimisticWeeklyTrends.map((week, i) => (
-                    <div
-                      key={i}
-                      className={`flex-1 rounded-t-lg transition-all duration-1000 ease-out flex flex-col justify-end ${
-                        i === optimisticWeeklyTrends.length - 1 ? 'bg-secondary shadow-md' : 'bg-primary/80 hover:bg-primary'
-                      }`}
-                      style={{ height: `${Math.max(week.percentage, 2)}%` }}
-                      title={`${week.label}: ${week.percentage}%`}
-                    ></div>
+                    <div key={i} className="flex-1 h-full flex flex-col justify-end group">
+                      <div className="w-full bg-surface-container-low/50 rounded-t-xl h-full relative overflow-hidden flex flex-col justify-end border border-outline-variant/10">
+                        <div
+                          className={`w-full rounded-t-xl transition-all duration-1000 ease-out relative ${
+                            week.percentage === 0 ? 'bg-transparent' :
+                            i === optimisticWeeklyTrends.length - 1 ? 'bg-secondary shadow-md' : 'bg-primary/80 group-hover:bg-primary'
+                          }`}
+                          style={{ height: `${Math.max(week.percentage, 0)}%` }}
+                          title={`${week.label}: ${week.percentage}%`}
+                        >
+                          {week.percentage > 0 && (
+                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-surface text-on-surface text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm z-10 pointer-events-none">
+                              {week.percentage}%
+                            </div>
+                          )}
+                        </div>
+                        {week.percentage === 0 && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <span className="text-[10px] text-on-surface-variant/40 font-bold -rotate-90 whitespace-nowrap tracking-widest">
+                              NO DATA
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   ))
                 ) : (
-                  <div className="flex-1 flex items-center justify-center text-xs text-on-surface-variant">
-                    No data yet — start completing habits!
+                  <div className="flex-1 flex flex-col items-center justify-center text-center text-on-surface-variant py-8">
+                    <span className="material-symbols-outlined text-3xl opacity-40 mb-2 font-light">monitoring</span>
+                    <p className="text-xs max-w-[180px]">No analytics yet — complete habits consistently to unlock insights.</p>
                   </div>
                 )}
               </div>
-              <div className="flex justify-between text-xs text-on-surface-variant mt-3 px-2">
+              <div className="flex justify-between text-[10px] sm:text-xs text-on-surface-variant mt-3 px-1">
                 {optimisticWeeklyTrends.map((week, i) => (
-                  <span key={i} className={i === optimisticWeeklyTrends.length - 1 ? 'font-bold text-secondary' : ''}>{week.label}</span>
+                  <span key={i} className={`truncate max-w-[60px] text-center ${i === optimisticWeeklyTrends.length - 1 ? 'font-bold text-secondary' : ''}`} title={week.label}>{week.label}</span>
                 ))}
               </div>
             </div>
@@ -760,62 +791,110 @@ export default function TodayClient({
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-on-surface-variant">No category data yet. Add habits with different categories to see breakdowns.</p>
+                  <div className="text-center py-6 text-on-surface-variant">
+                    <span className="material-symbols-outlined text-3xl opacity-40 mb-2 font-light">pie_chart</span>
+                    <p className="text-xs max-w-[200px] mx-auto">No analytics yet — complete habits consistently to unlock insights.</p>
+                  </div>
                 )}
               </div>
             </div>
           </div>
 
           {/* 90-Day Consistency Heatmap Bento Card */}
-          <div className="mt-6 p-6 bg-white border border-surface-container rounded-xl shadow-sm">
+          <div className="mt-6 p-6 bg-white border border-surface-container rounded-xl shadow-sm overflow-hidden">
             <h4 className="font-headline font-bold text-on-surface mb-2">90-Day Consistency Heatmap</h4>
             <p className="text-xs text-on-surface-variant mb-6">Visualizing your daily habit completions over the last 13 weeks.</p>
             
-            <div className="flex flex-col overflow-x-auto pb-2 scrollbar-thin">
-              <div className="flex gap-2 min-w-[640px] items-center">
-                {/* Day labels (Sun, Tue, Thu, Sat) */}
-                <div className="grid grid-rows-7 text-[10px] text-on-surface-variant/70 font-semibold pr-2 select-none h-28 items-center">
-                  <span>Sun</span>
-                  <span></span>
-                  <span>Tue</span>
-                  <span></span>
-                  <span>Thu</span>
-                  <span></span>
-                  <span>Sat</span>
-                </div>
+            <div className="flex flex-col overflow-x-auto pb-6 pt-2 scrollbar-thin">
+              <div className="flex flex-col min-w-max">
                 
-                {/* Heatmap Grid */}
-                <div className="grid grid-flow-col grid-rows-7 gap-1 h-28">
-                  {heatmapData.map((day, idx) => {
-                    const isFuture = day.level === -1;
-                    const levelColors = [
-                      'bg-surface-container-low border border-outline-variant/20', // Level 0
-                      'bg-primary/25 border border-primary/10',                  // Level 1
-                      'bg-primary/55 border border-primary/20',                  // Level 2
-                      'bg-primary border border-primary/30',                     // Level 3
-                    ];
-                    
+                {/* Month labels */}
+                <div className="flex gap-1.5 mb-3 ml-11 h-4">
+                  {Array.from({ length: 13 }).map((_, col) => {
+                    const dayIndex = col * 7;
+                    let showMonth = false;
+                    let monthStr = '';
+                    if (dayIndex < heatmapData.length) {
+                      const d = new Date(heatmapData[dayIndex].date + 'T12:00:00Z');
+                      monthStr = new Intl.DateTimeFormat("en-US", { month: "short" }).format(d);
+                      
+                      if (col === 0) {
+                        showMonth = true;
+                      } else {
+                        const prevD = new Date(heatmapData[(col - 1) * 7].date + 'T12:00:00Z');
+                        const prevMonthStr = new Intl.DateTimeFormat("en-US", { month: "short" }).format(prevD);
+                        if (monthStr !== prevMonthStr) {
+                          showMonth = true;
+                        }
+                      }
+                    }
+
                     return (
-                      <div
-                        key={idx}
-                        className={`w-3.5 h-3.5 rounded-sm transition-all duration-300 ${
-                          isFuture ? 'bg-transparent' : levelColors[day.level]
-                        }`}
-                        title={isFuture ? '' : `${day.date}: ${day.count} habits completed`}
-                      />
+                      <div key={col} className="w-4 sm:w-5 relative h-4">
+                        {showMonth && (
+                          <span className="text-[10px] font-bold text-on-surface-variant/80 absolute top-0 left-0 whitespace-nowrap">
+                            {monthStr}
+                          </span>
+                        )}
+                      </div>
                     );
                   })}
+                </div>
+
+                <div className="flex gap-3 min-w-max items-start">
+                  {/* Day labels (Sun, Tue, Thu, Sat) */}
+                  <div className="grid grid-rows-7 gap-1.5 text-[10px] text-on-surface-variant/70 font-semibold w-8 text-right pr-2 select-none items-center h-full pt-1">
+                    <span>Sun</span>
+                    <span></span>
+                    <span>Tue</span>
+                    <span></span>
+                    <span>Thu</span>
+                    <span></span>
+                    <span>Sat</span>
+                  </div>
+                  
+                  {/* Heatmap Grid */}
+                  <div className="grid grid-flow-col grid-rows-7 gap-1.5">
+                    {heatmapData.map((day, idx) => {
+                      const isFuture = day.level === -1;
+                      const levelColors = [
+                        'bg-surface-container-low border border-outline-variant/10', // Level 0
+                        'bg-primary opacity-[0.35]',                                 // Level 1
+                        'bg-primary opacity-[0.65]',                                 // Level 2
+                        'bg-primary opacity-100',                                    // Level 3
+                      ];
+                      
+                      return (
+                        <div
+                          key={idx}
+                          className={`group relative w-4 h-4 sm:w-5 sm:h-5 rounded-[4px] transition-all duration-300 ${
+                            isFuture ? 'bg-transparent' : levelColors[day.level]
+                          } ${!isFuture ? 'hover:scale-125 hover:z-50 hover:shadow-md cursor-pointer' : ''}`}
+                        >
+                          {!isFuture && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-on-surface text-surface text-[10px] rounded-md shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 flex items-center gap-1.5">
+                              <span className="font-bold text-xs">{day.count === 0 ? 'No activity' : `${day.count} habit${day.count === 1 ? '' : 's'}`}</span>
+                              <span className="opacity-70 text-[9px] uppercase tracking-wider">on {formatLocalDate(day.date, userTimezone)}</span>
+                              
+                              {/* Triangle pointer */}
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-on-surface"></div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
               
               {/* Legend */}
-              <div className="flex items-center gap-1.5 text-[10px] text-on-surface-variant mt-4 justify-end">
-                <span>Less</span>
-                <div className="w-3.5 h-3.5 rounded-sm bg-surface-container-low border border-outline-variant/20" />
-                <div className="w-3.5 h-3.5 rounded-sm bg-primary/25 border border-primary/10" />
-                <div className="w-3.5 h-3.5 rounded-sm bg-primary/55 border border-primary/20" />
-                <div className="w-3.5 h-3.5 rounded-sm bg-primary border border-primary/30" />
-                <span>More</span>
+              <div className="flex items-center gap-2 text-[10px] font-bold text-on-surface-variant/70 mt-6 justify-end">
+                <span>LESS</span>
+                <div className="w-4 h-4 rounded-[4px] bg-surface-container-low border border-outline-variant/10" />
+                <div className="w-4 h-4 rounded-[4px] bg-primary opacity-[0.35]" />
+                <div className="w-4 h-4 rounded-[4px] bg-primary opacity-[0.65]" />
+                <div className="w-4 h-4 rounded-[4px] bg-primary opacity-100" />
+                <span>MORE</span>
               </div>
             </div>
           </div>
@@ -837,9 +916,9 @@ export default function TodayClient({
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-on-surface-variant">
-                <span className="material-symbols-outlined text-3xl opacity-40 mb-2">mood</span>
-                <p className="text-xs">No mood entries yet. Use the mood tracker on your dashboard to start recording.</p>
+              <div className="text-center py-10 text-on-surface-variant border border-dashed border-outline-variant/60 rounded-xl bg-surface-container-low/40">
+                <span className="material-symbols-outlined text-4xl opacity-40 mb-3 font-light">mood</span>
+                <p className="text-xs max-w-[200px] mx-auto">No mood entries yet — start tracking your daily mood on the dashboard.</p>
               </div>
             )}
           </div>

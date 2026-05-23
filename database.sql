@@ -61,3 +61,16 @@ create policy "Allow public access to users" on users for all using (true) with 
 create policy "Allow public access to habits" on habits for all using (true) with check (true);
 create policy "Allow public access to habit_logs" on habit_logs for all using (true) with check (true);
 create policy "Allow public access to ai_insights" on ai_insights for all using (true) with check (true);
+
+-- 7. Create mood_logs table
+create table mood_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users(id) on delete cascade,
+  date date not null,
+  emoji text not null,
+  created_at timestamptz default now(),
+  unique(user_id, date)
+);
+
+alter table mood_logs enable row level security;
+create policy "Allow public access to mood_logs" on mood_logs for all using (true) with check (true);

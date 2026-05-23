@@ -11,7 +11,8 @@ import {
   getWeeklyCompletionTrends,
   getCategoryBreakdown,
   getWeeklySuccessRate,
-  getLeaderboard
+  getLeaderboard,
+  getMoodLogs90Days
 } from '@/services/habitService';
 import { getLocalDate, getTimeBasedGreeting } from '@/app/today/dateUtils';
 import { supabase } from '@/lib/supabase';
@@ -52,7 +53,8 @@ export default async function TodayPage() {
     weeklyTrends,
     categoryBreakdown,
     weeklySuccess,
-    leaderboard
+    leaderboard,
+    moodLogs90Days
   ] = await Promise.all([
     getHabits(userId),
     getTodayLogs(userId, todayStr),
@@ -62,7 +64,8 @@ export default async function TodayPage() {
     getWeeklyCompletionTrends(userId, userTimezone),
     getCategoryBreakdown(userId, userTimezone),
     getWeeklySuccessRate(userId, userTimezone),
-    getLeaderboard()
+    getLeaderboard(),
+    getMoodLogs90Days(userId, userTimezone)
   ]);
 
   return (
@@ -80,6 +83,7 @@ export default async function TodayPage() {
       initialCategoryBreakdown={categoryBreakdown}
       initialWeeklySuccess={weeklySuccess}
       initialLeaderboard={leaderboard}
+      initialMoodLogs90Days={moodLogs90Days}
       userName={userName}
     />
   );

@@ -29,7 +29,6 @@ export default function HabitModal({ isOpen, onClose, habit, userId }: HabitModa
   const [category, setCategory] = useState<'Morning' | 'Afternoon' | 'Evening' | 'All day'>('Morning');
   const [icon, setIcon] = useState('checklist');
   const [frequency, setFrequency] = useState('Daily');
-  const [startingStreak, setStartingStreak] = useState(0);
 
   useEffect(() => {
     if (habit) {
@@ -38,14 +37,12 @@ export default function HabitModal({ isOpen, onClose, habit, userId }: HabitModa
       setCategory(habit.category);
       setIcon(habit.icon);
       setFrequency(habit.frequency);
-      setStartingStreak(habit.streak);
     } else {
       setTitle('');
       setDescription('');
       setCategory('Morning');
       setIcon('checklist');
       setFrequency('Daily');
-      setStartingStreak(0);
     }
   }, [habit, isOpen]);
 
@@ -83,7 +80,6 @@ export default function HabitModal({ isOpen, onClose, habit, userId }: HabitModa
     setCategory('Morning');
     setIcon('checklist');
     setFrequency('Daily');
-    setStartingStreak(0);
     onClose();
   };
 
@@ -97,7 +93,7 @@ export default function HabitModal({ isOpen, onClose, habit, userId }: HabitModa
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       {/* Modal Container */}
-      <div className="w-full max-w-md bg-white shadow-2xl overflow-hidden border border-outline-variant/20 transition-all duration-300 rounded-xl">
+      <div className="w-full max-w-md bg-white shadow-2xl overflow-hidden border border-outline-variant/20 transition-all duration-300 rounded-xl flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="px-6 py-4 flex justify-between items-center border-b border-outline-variant/30 bg-surface-container-low">
           <h3 className="font-headline text-lg font-bold text-on-surface">
@@ -112,8 +108,9 @@ export default function HabitModal({ isOpen, onClose, habit, userId }: HabitModa
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Title */}
+        <form onSubmit={handleSubmit} className="overflow-y-auto overflow-x-hidden flex-1">
+          <div className="p-6 space-y-4">
+            {/* Title */}
           <div>
             <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">
               Habit Name *
@@ -174,19 +171,6 @@ export default function HabitModal({ isOpen, onClose, habit, userId }: HabitModa
             </div>
           </div>
 
-          {/* Starting Streak */}
-          <div>
-            <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">
-              Starting Streak (days)
-            </label>
-              <input
-                type="number"
-                min="0"
-                value={startingStreak}
-                onChange={(e) => setStartingStreak(parseInt(e.target.value) || 0)}
-                className="w-full bg-transparent border-b-2 border-outline-variant focus:border-primary focus:ring-0 px-1 py-1.5 text-sm font-headline text-on-surface outline-none transition-colors"
-              />
-          </div>
 
           {/* Preset Icon Grid Selector */}
           <div>
@@ -226,9 +210,10 @@ export default function HabitModal({ isOpen, onClose, habit, userId }: HabitModa
               </button>
             </div>
           </div>
+          </div>
 
           {/* Action Buttons */}
-          <div className="pt-4 flex items-center justify-end gap-3">
+          <div className="p-6 pt-4 border-t border-outline-variant/20 bg-surface flex items-center justify-end gap-3 sticky bottom-0">
             {habit && (
               <button
                 type="button"

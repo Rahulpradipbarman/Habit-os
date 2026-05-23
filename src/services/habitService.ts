@@ -131,10 +131,12 @@ export async function getWeeklyCompletionTrends(userId: string, tz: string) {
     const totalPossible = habits.length * 7
     const percentage = totalPossible > 0 ? Math.round((completedCount / totalPossible) * 100) : 0
 
-    const d = new Date(startStr + 'T12:00:00Z')
-    const weekNum = Math.ceil(d.getUTCDate() / 7)
+    let label = 'Current';
+    if (w === 1) label = 'Last Week';
+    else if (w > 1) label = `${w} Weeks Ago`;
+
     weeks.push({
-      label: w === 0 ? 'Current' : `Week ${weekNum}`,
+      label,
       percentage
     })
   }
@@ -243,55 +245,23 @@ export async function getLeaderboard() {
 }
 
 export async function saveMood(userId: string, date: string, emoji: string) {
-  const moodHabitName = `__mood_${emoji}__`
-
-  let { data: habit } = await supabase
-    .from('habits')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('name', moodHabitName)
-    .single()
-
-  if (!habit) {
-    const { data: newHabit, error: createError } = await supabase
-      .from('habits')
-      .insert({
-        user_id: userId,
-        name: moodHabitName,
-        category: 'All day',
-        frequency: 'Daily',
-        target_days: [0, 1, 2, 3, 4, 5, 6],
-        color: 'visual-only',
-        icon: 'face'
-      })
-      .select('id')
-      .single()
-    if (createError) throw new Error(createError.message)
-    habit = newHabit
-  }
-
-  const moodHabitId = habit.id
-
-  const { data: moodHabits } = await supabase
-    .from('habits')
-    .select('id')
-    .eq('user_id', userId)
-    .like('name', '__mood_%')
-
-  if (moodHabits && moodHabits.length > 0) {
-    const moodHabitIds = moodHabits.map(h => h.id)
-    await supabase
-      .from('habit_logs')
-      .update({ completed: false })
-      .in('habit_id', moodHabitIds)
-      .eq('date', date)
-  }
-
   const { data, error } = await supabase
-    .from('habit_logs')
-    .upsert({ habit_id: moodHabitId, date, completed: true }, { onConflict: 'habit_id,date' })
+    .from('mood_logs')
+    .upsert({ user_id: userId, date, emoji }, { onConflict: 'user_id,date' })
     .select().single()
 
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function getMoodLogs90Days(userId: string, tz: string) {
+  const todayStr = getLocalDate(tz);
+  const fromStr = addDays(todayStr, -90);
+  const { data, error } = await supabase
+    .from('mood_logs')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('date', fromStr)
   if (error) throw new Error(error.message)
   return data
 }

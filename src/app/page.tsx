@@ -22,7 +22,7 @@ export default function Home() {
         <nav className="relative flex justify-between items-center w-full px-6 py-4 max-w-[1440px] mx-auto">
           {/* LEFT: Logo */}
           <div className="flex-1 flex justify-start">
-            <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+            <Link href={isLoggedIn ? "/today" : "/"} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
               <span className="material-symbols-outlined text-primary text-2xl font-bold">rocket_launch</span>
               <span className="font-headline text-lg font-black text-primary">Habit OS</span>
             </Link>
