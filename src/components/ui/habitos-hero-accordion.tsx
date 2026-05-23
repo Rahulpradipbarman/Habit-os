@@ -13,7 +13,7 @@ const accordionItems = [
   {
     id: 2,
     title: 'Stay Hydrated',
-    imageUrl: 'https://images.unsplash.com/photo-1548839140-29a749e1bc4c?q=80&w=1968&auto=format&fit=crop', 
+    imageUrl: 'https://images.unsplash.com/photo-1523362628745-0c100150b504?q=80&w=2000&auto=format&fit=crop', 
   },
   {
     id: 3,
@@ -60,7 +60,7 @@ const AccordionItem = React.memo(({ item, isActive, onMouseEnter }: { item: any,
         initial={false}
         animate={{ scale: isActive ? 1.05 : 1 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }} // Optimized ease-out curve
-        className="absolute inset-0 w-full h-[150%] md:h-full object-cover"
+        className="absolute inset-0 w-full h-[150%] md:h-full object-cover bg-surface-variant"
         style={{ 
           transformOrigin: "center",
           willChange: "transform",

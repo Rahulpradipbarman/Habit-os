@@ -5,6 +5,38 @@ import Link from 'next/link';
 import { useApp } from '@/context/AppContext';
 import { HabitosHeroAccordion } from '@/components/ui/habitos-hero-accordion';
 import { getCurrentUserId, logout } from '@/app/actions/auth';
+import ElegantCarousel from '@/components/ui/elegant-carousel';
+import { ClientsSection, Stat, Testimonial } from '@/components/ui/testimonial-card';
+
+const statsData: Stat[] = [
+  { value: "10K+", label: "Habits Tracked" },
+  { value: "92%", label: "Weekly Engagement" },
+  { value: "4.9", label: "User Rating" },
+];
+
+const testimonialsData: Testimonial[] = [
+  {
+    name: "Sarah Jenkins",
+    title: "Product Designer",
+    quote: "I've tried every tracker out there, but Habit OS is the first one that actually made me want to build consistency. The tactile analytics feel like a reward every morning.",
+    avatarSrc: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&auto=format&fit=crop&q=80",
+    rating: 5.0,
+  },
+  {
+    name: "Marcus Chen",
+    title: "Software Engineer",
+    quote: "The streak tracking and deep work integrations changed how I structure my day. It's incredibly reliable and the premium UI makes it a joy to use.",
+    avatarSrc: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&auto=format&fit=crop&q=80",
+    rating: 4.8,
+  },
+  {
+    name: "Elena Rodriguez",
+    title: "Freelance Writer",
+    quote: "Finally, a habit tracker that doesn't feel like a spreadsheet. Being able to visualize my progress so clearly has kept me motivated for over 6 months.",
+    avatarSrc: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=400&auto=format&fit=crop&q=80",
+    rating: 5.0,
+  },
+];
 
 export default function Home() {
   const { activeTab } = useApp();
@@ -188,6 +220,21 @@ export default function Home() {
           <HabitosHeroAccordion />
         </section>
 
+        {/* Feature Carousel Showcase */}
+        <section className="py-8 md:py-16">
+          <div className="text-center space-y-3 mb-10">
+            <div className="inline-flex items-center gap-1.5 bg-primary/10 text-primary px-3 py-1.5 rounded-full font-bold text-[10px] uppercase tracking-wider mb-2">
+              <span className="material-symbols-outlined text-sm">auto_awesome</span>
+              <span>Platform Tour</span>
+            </div>
+            <h2 className="font-headline text-3xl md:text-4xl font-black text-on-surface">Experience Habit OS</h2>
+            <p className="text-sm md:text-base text-on-surface-variant max-w-lg mx-auto leading-relaxed">
+              Everything you need to build consistency, packaged in a premium interface that feels incredible to use.
+            </p>
+          </div>
+          <ElegantCarousel />
+        </section>
+
         {/* Features Bento Section */}
         <section className="py-8 space-y-12" id="how-it-works">
           <div className="text-center space-y-3">
@@ -276,6 +323,17 @@ export default function Home() {
 
           </div>
         </section>
+
+        {/* Testimonials Section */}
+        <ClientsSection
+          tagLabel="Habit OS Community"
+          title="People Are Finally Staying Consistent"
+          description="Thousands of users are building stronger routines, improving focus, and tracking meaningful progress through Habit OS."
+          stats={statsData}
+          testimonials={testimonialsData}
+          primaryActionLabel="Start Free Trial"
+          secondaryActionLabel="Read More Stories"
+        />
 
         {/* CTA Section */}
         <section className="py-8">
