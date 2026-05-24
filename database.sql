@@ -39,7 +39,7 @@ create table habit_logs (
 create table ai_insights (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references users(id) on delete cascade,
-  insight_text text not null,
+  insight_data jsonb not null,
   week integer not null,
   year integer not null,
   created_at timestamptz default now()

@@ -97,6 +97,7 @@ export async function GET(request: Request) {
         const streakSummary = streaks.map(s => `- ${s.name}: Current streak ${s.current} days, longest ${s.longest} days.`).join('\n')
 
         let insightText = ''
+        let structuredInsight: any = null
 
         // 4. Contact OpenAI for generating insight (if API key is present)
         if (process.env.OPENAI_API_KEY) {
@@ -109,32 +110,47 @@ export async function GET(request: Request) {
               },
               body: JSON.stringify({
                 model: 'gpt-4o-mini',
+                response_format: { type: "json_object" },
                 messages: [
                   {
                     role: 'system',
-                    content: 'You are an encouraging AI productivity coach. Analyze the user\'s weekly habit performance and streaks. Provide a concise, personalized insight (max 3 sentences). Include motivational praise, streak analysis, and an actionable productivity tip.'
+                    content: 'You are an encouraging AI productivity coach. Analyze the user\'s weekly habit performance and streaks. Return your response ONLY as a valid JSON object matching this exact structure: { "summary": "Brief 1-2 sentence overview", "motivational_coaching": "Direct encouraging advice", "strengths": "1-2 sentences on what they did well", "weaknesses": "1-2 sentences on areas to improve", "consistency_observations": "Note on their streak or daily pattern", "momentum_analysis": "How their week trended overall" }'
                   },
                   {
                     role: 'user',
                     content: `User: ${user.name}\nWeekly Habits:\n${habitCompletionSummary}\nStreaks:\n${streakSummary}`
                   }
                 ],
-                max_tokens: 150,
+                max_tokens: 350,
                 temperature: 0.7
               })
             })
 
             const aiData = await response.json()
-            insightText = aiData.choices?.[0]?.message?.content?.trim() || ''
+            const rawContent = aiData.choices?.[0]?.message?.content?.trim() || ''
+            
+            // Validate it's JSON
+            if (rawContent) {
+              structuredInsight = JSON.parse(rawContent)
+              insightText = JSON.stringify(structuredInsight)
+            }
           } catch (err) {
             console.error(`[Cron] AI Generation failed for user ${user.id}:`, err)
           }
         }
 
         // Default encouraging placeholder if OpenAI is not set up or fails
-        if (!insightText) {
+        if (!insightText || !structuredInsight) {
           const topHabit = habits[0]?.name || 'routines'
-          insightText = `Awesome work focusing on your ${topHabit} habit this week! Stay consistent and build your daily momentum.`
+          structuredInsight = {
+            summary: `Awesome work focusing on your ${topHabit} habit this week!`,
+            motivational_coaching: "Stay consistent and build your daily momentum.",
+            strengths: "You are tracking your routines.",
+            weaknesses: "Try to log every single day to maximize results.",
+            consistency_observations: "Your consistency is the key to long-term success.",
+            momentum_analysis: "Keep pushing forward, you're building a strong foundation."
+          }
+          insightText = JSON.stringify(structuredInsight)
         }
 
         // 5. Query and upsert insight
@@ -150,7 +166,7 @@ export async function GET(request: Request) {
         if (existingInsight) {
           const { error } = await supabase
             .from('ai_insights')
-            .update({ insight_text: insightText })
+            .update({ insight_data: structuredInsight })
             .eq('id', existingInsight.id)
           dbError = error
         } else {
@@ -158,7 +174,7 @@ export async function GET(request: Request) {
             .from('ai_insights')
             .insert({
               user_id: user.id,
-              insight_text: insightText,
+              insight_data: structuredInsight,
               week,
               year
             })
@@ -190,8 +206,9 @@ export async function GET(request: Request) {
                   </div>
 
                   <div style="background-color: #fff8e1; padding: 16px; border-radius: 8px; margin: 20px 0; border: 1px solid #ffe082;">
-                    <h3 style="margin-top: 0; color: #f57f17;">AI Insight</h3>
-                    <p style="margin-bottom: 0; font-style: italic;">"${insightText}"</p>
+                    <h3 style="margin-top: 0; color: #f57f17;">Weekly AI Summary</h3>
+                    <p style="margin-bottom: 12px; font-weight: 500;">${structuredInsight.summary}</p>
+                    <p style="margin-bottom: 0; font-style: italic;">"${structuredInsight.motivational_coaching}"</p>
                   </div>
                   
                   <p>Keep up the great work!</p>

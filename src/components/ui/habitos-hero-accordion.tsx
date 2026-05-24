@@ -99,27 +99,106 @@ AccordionItem.displayName = 'AccordionItem';
 // --- Main App Component ---
 export function HabitosHeroAccordion() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [showSwipeHint, setShowSwipeHint] = useState(true);
 
   // Memoize hover handler to prevent unnecessary re-renders
   const handleItemHover = useCallback((index: number) => {
     setActiveIndex(index);
   }, []);
 
+  // Hide swipe hint after scroll or timeout
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSwipeHint(false);
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    if (showSwipeHint) {
+      setShowSwipeHint(false);
+    }
+  }, [showSwipeHint]);
+
   return (
-    <div className="flex-1 relative w-full aspect-square md:aspect-auto md:h-[460px] max-w-[500px]">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary-container/10 to-secondary-container/10 rounded-2xl border border-outline-variant/20 pointer-events-none"></div>
-      
-      {/* The AnimateSharedLayout pattern is inherently supported in newer framer-motion versions */}
-      <div className="absolute inset-3 md:inset-4 flex flex-row items-stretch justify-center gap-2 overflow-hidden rounded-xl">
-        {accordionItems.map((item, index) => (
-          <AccordionItem
-            key={item.id}
-            item={item}
-            isActive={index === activeIndex}
-            onMouseEnter={() => handleItemHover(index)}
-          />
-        ))}
+    <>
+      {/* Desktop: Hover Accordion */}
+      <div className="hidden md:block flex-1 relative w-full h-[500px] max-w-[650px]">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary-container/10 to-secondary-container/10 rounded-2xl border border-outline-variant/20 pointer-events-none"></div>
+        
+        {/* The AnimateSharedLayout pattern is inherently supported in newer framer-motion versions */}
+        <div className="absolute inset-2 flex flex-row items-stretch justify-center gap-2 overflow-hidden rounded-xl">
+          {accordionItems.map((item, index) => (
+            <AccordionItem
+              key={item.id}
+              item={item}
+              isActive={index === activeIndex}
+              onMouseEnter={() => handleItemHover(index)}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+
+      {/* Mobile: Swipeable Carousel */}
+      <div className="md:hidden flex-1 relative w-full aspect-square max-w-[500px] mx-auto">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary-container/10 to-secondary-container/10 rounded-2xl border border-outline-variant/20 pointer-events-none"></div>
+        
+        <div 
+          className="absolute inset-2 flex flex-row items-stretch gap-3 overflow-x-auto snap-x snap-mandatory rounded-xl pb-1 hide-scrollbar"
+          onScroll={handleScroll}
+          onTouchStart={handleScroll}
+        >
+          {accordionItems.map((item) => (
+            <div 
+              key={item.id} 
+              className="relative w-[85vw] shrink-0 snap-center rounded-xl overflow-hidden shadow-md border border-outline-variant/10"
+            >
+              <img 
+                src={item.imageUrl} 
+                alt={item.title} 
+                className="absolute inset-0 w-full h-full object-cover bg-surface-variant"
+                onError={(e) => { (e.target as HTMLImageElement).onerror = null; (e.target as HTMLImageElement).src = 'https://placehold.co/400x450/2d3748/ffffff?text=Image+Error'; }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"></div>
+              <span className="absolute bottom-6 left-6 text-white font-headline font-bold text-xl drop-shadow-md">
+                {item.title}
+              </span>
+            </div>
+          ))}
+        </div>
+        
+        {/* Swipe Indicator Overlay */}
+        <div className="pointer-events-none">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: showSwipeHint ? 1 : 0 }}
+            transition={{ duration: 0.5 }}
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex flex-col items-center gap-1.5"
+          >
+            <motion.div 
+              animate={{ x: [0, 6, 0] }}
+              transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+              className="bg-black/30 backdrop-blur-md border border-white/20 rounded-full w-10 h-10 flex items-center justify-center text-white shadow-lg"
+            >
+              <span className="material-symbols-outlined text-[22px] leading-none">arrow_forward</span>
+            </motion.div>
+            <span className="text-[9px] font-bold text-white uppercase tracking-wider drop-shadow-md bg-black/20 px-2 py-0.5 rounded-full backdrop-blur-sm">
+              Swipe to explore
+            </span>
+          </motion.div>
+        </div>
+
+        {/* Hide Scrollbar style for mobile carousel */}
+        <style dangerouslySetInnerHTML={{__html: `
+          .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+          }
+          .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+        `}} />
+      </div>
+    </>
   );
 }

@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,15 +152,27 @@ export default function LoginPage() {
                 </div>
                 <div className="relative">
                   <label className="block text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">Password</label>
-                  <input 
-                    type="password" 
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Min. 6 characters" 
-                    className="w-full bg-transparent border-b border-outline-variant py-2 text-sm text-on-surface focus:outline-none focus:border-primary transition-all outline-none"
-                  />
+                  <div className="relative">
+                    <input 
+                      type={showPassword ? "text" : "password"} 
+                      required
+                      minLength={6}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Min. 6 characters" 
+                      className="w-full bg-transparent border-b border-outline-variant py-2 text-sm text-on-surface focus:outline-none focus:border-primary transition-all outline-none pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-on-surface-variant hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20 rounded-full flex items-center justify-center"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      <span className="material-symbols-outlined text-[18px]">
+                        {showPassword ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
 
                 {error && (
