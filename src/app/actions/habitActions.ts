@@ -46,10 +46,20 @@ export async function deleteHabitAction(habitId: string) {
   revalidatePath('/today')
 }
 
+export async function getSettingsAction(userId: string) {
+  const { data, error } = await supabase
+    .from('users')
+    .select('name, reminder_time')
+    .eq('id', userId)
+    .single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
 export async function updateSettingsAction(userId: string, payload: { name?: string; reminder_time?: string | null }) {
   const { data, error } = await supabase.from('users').update(payload).eq('id', userId).select().single()
   if (error) throw new Error(error.message)
-  revalidatePath('/settings')
+  revalidatePath('/today')
   return data
 }
 

@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useApp } from '@/context/AppContext';
 
 interface SidebarLayoutProps {
@@ -18,12 +18,42 @@ export default function SidebarLayout({ children, onAddHabitClick }: SidebarLayo
 
   const isSettings = pathname === '/settings';
   const isToday = pathname === '/today' || pathname === '/';
+  
+  const searchParams = useSearchParams();
+  const tabParam = searchParams?.get('tab');
 
-  const navigateToTab = (tabName: string) => {
-    setActiveTab(tabName);
-    setIsDrawerOpen(false);
-    if (isSettings) {
-      router.push('/today');
+  // Sync initial tab from URL if present
+  useEffect(() => {
+    if (tabParam && ['dashboard', 'library', 'analytics', 'community', 'settings'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam, setActiveTab]);
+
+  // Handle popstate for browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab && ['dashboard', 'library', 'analytics', 'community', 'settings'].includes(tab)) {
+        setActiveTab(tab);
+      } else if (pathname === '/today' || pathname === '/') {
+        setActiveTab('dashboard'); // Default
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [setActiveTab, pathname]);
+
+  const handleTabClick = (e: React.MouseEvent<HTMLAnchorElement>, tabId: string) => {
+    if (isToday) {
+      e.preventDefault();
+      setActiveTab(tabId);
+      window.history.pushState(null, '', `?tab=${tabId}`);
+      setIsDrawerOpen(false);
+    } else {
+      // Allow Link to navigate
+      setActiveTab(tabId);
+      setIsDrawerOpen(false);
     }
   };
 
@@ -32,6 +62,7 @@ export default function SidebarLayout({ children, onAddHabitClick }: SidebarLayo
     { id: 'library', label: 'Habit Library', icon: 'list_alt' },
     { id: 'analytics', label: 'Analytics', icon: 'insights' },
     { id: 'community', label: 'Community', icon: 'groups' },
+    { id: 'settings', label: 'Settings', icon: 'settings' },
   ];
 
   return (
@@ -52,9 +83,10 @@ export default function SidebarLayout({ children, onAddHabitClick }: SidebarLayo
             {navItems.map((item) => {
               const isActive = isToday && activeTab === item.id;
               return (
-                <button
+                <Link
                   key={item.id}
-                  onClick={() => navigateToTab(item.id)}
+                  href={`/today?tab=${item.id}`}
+                  onClick={(e) => handleTabClick(e, item.id)}
                   className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all text-left ${
                     isActive
                       ? 'text-primary font-bold bg-secondary-container shadow-sm'
@@ -65,22 +97,9 @@ export default function SidebarLayout({ children, onAddHabitClick }: SidebarLayo
                     {item.icon}
                   </span>
                   <span className="text-sm font-headline">{item.label}</span>
-                </button>
+                </Link>
               );
             })}
-            <Link
-              href="/settings"
-              className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${
-                isSettings
-                  ? 'text-primary font-bold bg-secondary-container shadow-sm'
-                  : 'text-on-surface-variant font-medium hover:bg-surface-container-high'
-              }`}
-            >
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: isSettings ? "'FILL' 1" : "'FILL' 0" }}>
-                settings
-              </span>
-              <span className="text-sm font-headline">Settings</span>
-            </Link>
           </nav>
 
         </aside>
@@ -138,9 +157,10 @@ export default function SidebarLayout({ children, onAddHabitClick }: SidebarLayo
           {navItems.map((item) => {
             const isActive = isToday && activeTab === item.id;
             return (
-              <button
+              <Link
                 key={item.id}
-                onClick={() => navigateToTab(item.id)}
+                href={`/today?tab=${item.id}`}
+                onClick={(e) => handleTabClick(e, item.id)}
                 className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all text-left ${
                   isActive
                     ? 'text-primary font-bold bg-secondary-container shadow-sm'
@@ -151,23 +171,9 @@ export default function SidebarLayout({ children, onAddHabitClick }: SidebarLayo
                   {item.icon}
                 </span>
                 <span className="text-sm font-headline">{item.label}</span>
-              </button>
+              </Link>
             );
           })}
-          <Link
-            href="/settings"
-            onClick={() => setIsDrawerOpen(false)}
-            className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all ${
-              isSettings
-                ? 'text-primary font-bold bg-secondary-container shadow-sm'
-                : 'text-on-surface-variant font-medium hover:bg-surface-container-high'
-            }`}
-          >
-            <span className="material-symbols-outlined" style={{ fontVariationSettings: isSettings ? "'FILL' 1" : "'FILL' 0" }}>
-              settings
-            </span>
-            <span className="text-sm font-headline">Settings</span>
-          </Link>
         </nav>
       </aside>
 

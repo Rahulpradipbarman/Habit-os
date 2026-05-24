@@ -63,8 +63,8 @@ export default function Home() {
           {/* CENTER: Desktop Navigation */}
           <div className="hidden md:flex items-center justify-center gap-8 absolute left-1/2 -translate-x-1/2">
             <a className="text-xs font-bold text-primary border-b-2 border-primary pb-0.5" href="#">Home</a>
-            <Link className="text-xs font-bold text-on-surface-variant hover:text-primary transition-colors" href="/login">Habit Library</Link>
-            <Link className="text-xs font-bold text-on-surface-variant hover:text-primary transition-colors" href="/login">Community</Link>
+            <Link className="text-xs font-bold text-on-surface-variant hover:text-primary transition-colors" href={isLoggedIn ? "/today?tab=library" : "/login"}>Habit Library</Link>
+            <Link className="text-xs font-bold text-on-surface-variant hover:text-primary transition-colors" href={isLoggedIn ? "/today?tab=community" : "/login"}>Community</Link>
           </div>
 
           {/* RIGHT: Auth & Mobile Toggle */}
@@ -74,7 +74,7 @@ export default function Home() {
             ) : isLoggedIn ? (
               <div className="hidden md:flex items-center gap-4">
                 <Link 
-                  href="/today" 
+                  href="/today?tab=dashboard" 
                   className="px-5 py-2 bg-primary text-white text-xs font-bold rounded-full shadow-sm hover:opacity-95 active:scale-95 transition-all"
                 >
                   Go to Dashboard
@@ -128,15 +128,15 @@ export default function Home() {
         >
           <div className="flex flex-col px-6 py-4 gap-4">
             <a className="text-sm font-bold text-primary" href="#">Home</a>
-            <Link className="text-sm font-bold text-on-surface-variant hover:text-primary transition-colors" href="/login">Habit Library</Link>
-            <Link className="text-sm font-bold text-on-surface-variant hover:text-primary transition-colors" href="/login">Community</Link>
+            <Link className="text-sm font-bold text-on-surface-variant hover:text-primary transition-colors" href={isLoggedIn ? "/today?tab=library" : "/login"}>Habit Library</Link>
+            <Link className="text-sm font-bold text-on-surface-variant hover:text-primary transition-colors" href={isLoggedIn ? "/today?tab=community" : "/login"}>Community</Link>
             
             <hr className="border-outline-variant/10 my-2" />
             
             {isLoggedIn ? (
               <div className="flex flex-col gap-3">
                 <Link 
-                  href="/today" 
+                  href="/today?tab=dashboard" 
                   className="w-full text-center px-5 py-2.5 bg-primary text-white text-sm font-bold rounded-lg shadow-sm hover:opacity-95 transition-all"
                 >
                   Go to Dashboard
@@ -193,7 +193,7 @@ export default function Home() {
             <div className="flex flex-wrap gap-4 pt-2">
               {isLoggedIn ? (
                 <Link 
-                  href="/today"
+                  href="/today?tab=dashboard"
                   className="px-8 py-3 bg-primary text-white rounded-full font-bold text-xs hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20"
                 >
                   Go to Dashboard
@@ -352,7 +352,7 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-3 relative z-10 w-full justify-center max-w-xs">
               {isLoggedIn ? (
                 <Link 
-                  href="/today"
+                  href="/today?tab=dashboard"
                   className="px-6 py-2.5 bg-white text-primary rounded-full font-bold text-xs hover:scale-105 active:scale-95 transition-all text-center"
                 >
                   Go to Dashboard

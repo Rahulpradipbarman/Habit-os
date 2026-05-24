@@ -3,6 +3,7 @@ import SettingsClient from './SettingsClient';
 import { Metadata } from 'next';
 import { requireAuth } from '@/app/actions/auth';
 import { supabase } from '@/lib/supabase';
+import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: 'Habit OS - Settings',
@@ -10,16 +11,6 @@ export const metadata: Metadata = {
 };
 
 export default async function SettingsPage() {
-  const userId = await requireAuth();
-
-  const { data: userData } = await supabase
-    .from('users')
-    .select('name, reminder_time')
-    .eq('id', userId)
-    .single();
-
-  const name = userData?.name || '';
-  const reminderTime = userData?.reminder_time || null;
-
-  return <SettingsClient userId={userId} initialName={name} initialReminderTime={reminderTime} />;
+  await requireAuth();
+  redirect('/today?tab=settings');
 }

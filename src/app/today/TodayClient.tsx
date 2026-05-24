@@ -3,13 +3,18 @@
 import React, { useState, useEffect, useRef, useTransition, useOptimistic } from 'react';
 import { useApp } from '@/context/AppContext';
 import SidebarLayout from '@/components/SidebarLayout';
-import HabitCard from '@/components/HabitCard';
 import HabitModal from '@/components/HabitModal';
-import InsightBanner from '@/components/InsightBanner';
 import { toggleHabitLogAction, deleteHabitAction, createHabitAction, saveMoodAction } from '@/app/actions/habitActions';
 import { Habit } from '@/context/AppContext';
 import { getLocalDate, addDays, formatLocalDate, formatLocalTime } from '@/app/today/dateUtils';
 import { useRouter } from 'next/navigation';
+
+import { DashboardTab } from './tabs/DashboardTab';
+import { LibraryTab } from './tabs/LibraryTab';
+import { AnalyticsTab } from './tabs/AnalyticsTab';
+import { CommunityTab } from './tabs/CommunityTab';
+import { SettingsTab } from './tabs/SettingsTab';
+import PerformanceTracker from '@/components/PerformanceTracker';
 
 interface WeekTrend {
   label: string;
@@ -72,6 +77,16 @@ export default function TodayClient({
     setActiveTab,
   } = useApp();
 
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set([activeTab]));
+  useEffect(() => {
+    setVisitedTabs(prev => {
+      if (prev.has(activeTab)) return prev;
+      const next = new Set(prev);
+      next.add(activeTab);
+      return next;
+    });
+  }, [activeTab]);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeSearch, setActiveSearch] = useState('');
   const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
@@ -79,16 +94,6 @@ export default function TodayClient({
   const router = useRouter();
 
   useEffect(() => {
-    // Temporary debugging logs requested by user
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('=== TIMEZONE DEBUG ===');
-      console.log('Stored Timezone:', userTimezone);
-      console.log('Local Formatted Time:', formatLocalTime(new Date(), userTimezone));
-      console.log('UTC Time:', new Date().toUTCString());
-      console.log('Browser Timezone:', Intl.DateTimeFormat().resolvedOptions().timeZone);
-      console.log('======================');
-    }
-
     const now = new Date();
     const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
     const msUntilMidnight = midnight.getTime() - now.getTime();
@@ -100,10 +105,10 @@ export default function TodayClient({
     return () => clearTimeout(timer);
   }, [router, userTimezone]);
 
-  const handleOpenEditModal = (habit: Habit) => {
+  const handleOpenEditModal = React.useCallback((habit: Habit | null) => {
     setEditingHabit(habit);
     setIsModalOpen(true);
-  };
+  }, []);
   
   // Pomodoro Timer State
   const [timerTime, setTimerTime] = useState(25 * 60);
@@ -155,67 +160,12 @@ export default function TodayClient({
   const dailyGoalTotal = optimisticHabits.length;
   const currentStreak = optimisticHabits.length > 0 ? Math.max(...optimisticHabits.map((h) => h.streak), 0) : 0;
 
-  const heatmapData = React.useMemo(() => {
-    const data = [];
-    const d = new Date(todayStr + 'T12:00:00Z');
-    const startOffset = d.getUTCDay(); // days since Sunday
-    const totalDays = 13 * 7; // 91 days (13 weeks)
-    
-    const startDateStr = addDays(todayStr, -startOffset - 84);
-
-    for (let i = 0; i < totalDays; i++) {
-      const dateStr = addDays(startDateStr, i);
-      
-      const isFuture = dateStr > todayStr;
-      
-      const dayLogs = initialLogs90Days.filter(
-        log => log.date === dateStr && log.completed
-      );
-      const completedCount = dateStr === todayStr ? dailyGoalCompleted : dayLogs.length;
-      
-      let level = 0;
-      if (isFuture) {
-        level = -1;
-      } else if (completedCount === 0) {
-        level = 0;
-      } else if (completedCount === 1) {
-        level = 1;
-      } else if (completedCount === 2) {
-        level = 2;
-      } else {
-        level = 3;
-      }
-      
-      data.push({
-        date: dateStr,
-        count: completedCount,
-        level,
-      });
-    }
-
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('=== HEATMAP DEBUG ===');
-      console.log('Raw habit_logs count (90 days):', initialLogs90Days.length);
-      console.log('Raw habit_logs count (completed):', initialLogs90Days.filter(l => l.completed).length);
-      
-      const countsByDate: Record<string, number> = {};
-      initialLogs90Days.filter(l => l.completed).forEach(l => {
-        countsByDate[l.date] = (countsByDate[l.date] || 0) + 1;
-      });
-      console.log('Grouped daily completion totals:', countsByDate);
-      console.log('Heatmap Data Map (sample):', data.filter(d => d.count > 0 || d.date === todayStr));
-      console.log('======================');
-    }
-
-    return data;
-  }, [initialLogs90Days, todayStr, dailyGoalCompleted]);
-
   // Mood selector state (optimistic)
   const initialMood = getMoodFromLogs(initialMoodLogs90Days, todayStr);
   const [currentMood, setCurrentMood] = useState(initialMood);
   const moodEmojis = ['☀️', '🌤️', '😊', '😐', '😔'];
 
-  const getMoodGradient = (emoji: string) => {
+  const getMoodGradient = React.useCallback((emoji: string) => {
     switch (emoji) {
       case '☀️': return 'bg-gradient-to-br from-yellow-50 to-orange-50';
       case '🌤️': return 'bg-gradient-to-br from-orange-50 to-yellow-50/50';
@@ -224,9 +174,9 @@ export default function TodayClient({
       case '😔': return 'bg-gradient-to-br from-blue-50 to-indigo-50/50';
       default: return 'bg-white';
     }
-  };
+  }, []);
 
-  const getMoodColorClass = (emoji: string) => {
+  const getMoodColorClass = React.useCallback((emoji: string) => {
     switch (emoji) {
       case '☀️': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case '🌤️': return 'bg-orange-50 text-orange-800 border-orange-100';
@@ -235,7 +185,7 @@ export default function TodayClient({
       case '😔': return 'bg-blue-50 text-blue-800 border-blue-100';
       default: return 'bg-surface-container-low text-on-surface-variant border-outline-variant/20';
     }
-  };
+  }, []);
 
   // Extract mood history from 90-day mood logs + optimistic current day
   const moodHistory = React.useMemo(() => {
@@ -251,8 +201,9 @@ export default function TodayClient({
     }
     return moods.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
   }, [initialMoodLogs90Days, currentMood, todayStr]);
+
   // Confetti helper
-  const triggerConfetti = (element: HTMLElement) => {
+  const triggerConfetti = React.useCallback((element: HTMLElement) => {
     const colors = ['#00685f', '#565e74', '#006387'];
     const rect = element.getBoundingClientRect();
     
@@ -288,9 +239,9 @@ export default function TodayClient({
       };
       requestAnimationFrame(animate);
     }
-  };
+  }, []);
 
-  const handleHabitToggle = (id: string, eventTarget: HTMLElement) => {
+  const handleHabitToggle = React.useCallback((id: string, eventTarget: HTMLElement | null) => {
     const habit = optimisticHabits.find((h) => h.id === id);
     if (!habit) return;
 
@@ -303,13 +254,13 @@ export default function TodayClient({
       toggleOptimisticHabit(id);
       await toggleHabitLogAction(id, todayStr, !currentCompleted);
     });
-  };
+  }, [optimisticHabits, todayStr, toggleOptimisticHabit, triggerConfetti]);
 
-  const handleDeleteHabit = async (id: string) => {
+  const handleDeleteHabit = React.useCallback(async (id: string) => {
     await deleteHabitAction(id);
-  };
+  }, []);
 
-  const handleUsePreset = async (title: string, desc: string, category: any, icon: string, freq: string) => {
+  const handleUsePreset = React.useCallback(async (title: string, desc: string, category: any, icon: string, freq: string) => {
     await createHabitAction(userId, {
       name: title,
       category,
@@ -318,11 +269,12 @@ export default function TodayClient({
       color: desc,
       icon: icon
     });
-  };
+  }, [userId]);
 
-  const handleSaveMood = async (emoji: string) => {
+  const handleSaveMood = React.useCallback(async (emoji: string) => {
+    setCurrentMood(emoji);
     await saveMoodAction(userId, todayStr, emoji);
-  };
+  }, [userId, todayStr]);
 
   // Pomodoro effect
   useEffect(() => {
@@ -346,20 +298,20 @@ export default function TodayClient({
     };
   }, [timerRunning]);
 
-  const handleTimerStartStop = () => {
-    setTimerRunning(!timerRunning);
-  };
+  const handleTimerStartStop = React.useCallback(() => {
+    setTimerRunning(prev => !prev);
+  }, []);
 
-  const handleTimerReset = () => {
+  const handleTimerReset = React.useCallback(() => {
     setTimerRunning(false);
     setTimerTime(25 * 60);
-  };
+  }, []);
 
-  const formatTime = (seconds: number) => {
+  const formatTime = React.useCallback((seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
+  }, []);
 
   // Filtered habits
   const filteredHabits = optimisticHabits.filter((h) => {
@@ -377,8 +329,6 @@ export default function TodayClient({
     ? Math.max(0, Math.min(100, initialWeeklySuccess.current + Math.round((todayDelta / totalWeeklyPossible) * 100)))
     : initialWeeklySuccess.current;
   const weeklyDelta = optimisticWeeklySuccess - initialWeeklySuccess.previous;
-
-  const completionPercentage = dailyGoalTotal > 0 ? Math.round((dailyGoalCompleted / dailyGoalTotal) * 100) : 0;
 
   // Weekly day-by-day bars for the summary card (last 7 days from real data)
   const weekDayBars = React.useMemo(() => {
@@ -424,552 +374,77 @@ export default function TodayClient({
 
   return (
     <SidebarLayout onAddHabitClick={() => { setEditingHabit(null); setIsModalOpen(true); }}>
-      {/* Dynamic Content Switching depending on activeTab */}
-      {activeTab === 'dashboard' ? (
-        <div className="flex-1 flex flex-col">
-          {/* Header */}
-          <header className={`flex flex-col md:flex-row md:items-center justify-between gap-6 px-6 lg:px-16 py-6 bg-surface shadow-sm border-b border-outline-variant/10 sticky top-0 z-20`}>
-            <div>
-              <h2 className="font-headline text-3xl font-extrabold text-on-surface">
-                {greeting}, {userName} <span className="text-lg font-medium text-on-surface-variant opacity-70">({userTimezone})</span>
-              </h2>
-              <p className="text-sm text-on-surface-variant font-medium mt-1">
-                Welcome back to your workspace. Let’s focus on progress.
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              {/* Search Bar */}
-              <div className="hidden sm:flex items-center bg-surface-container rounded-full px-4 py-1.5 gap-2 border border-outline-variant/20 shadow-inner">
-                <span className="material-symbols-outlined text-on-surface-variant text-lg">search</span>
-                <input 
-                  type="text" 
-                  value={activeSearch}
-                  onChange={(e) => setActiveSearch(e.target.value)}
-                  placeholder="Search habits..." 
-                  className="bg-transparent border-none focus:outline-none focus:ring-0 text-sm text-on-surface w-40"
-                />
-              </div>
-            </div>
-          </header>
+      <PerformanceTracker />
+      
+      {/* Dynamic Content Switching using Keep-Alive visibility toggles */}
+      {visitedTabs.has('dashboard') && (
+        <DashboardTab
+          isActive={activeTab === 'dashboard'}
+          greeting={greeting}
+          userName={userName}
+          userTimezone={userTimezone}
+          activeSearch={activeSearch}
+          setActiveSearch={setActiveSearch}
+          currentStreak={currentStreak}
+          dailyGoalCompleted={dailyGoalCompleted}
+          dailyGoalTotal={dailyGoalTotal}
+          optimisticWeeklySuccess={optimisticWeeklySuccess}
+          weekDayBars={weekDayBars}
+          weeklyDelta={weeklyDelta}
+          filteredHabits={filteredHabits}
+          handleHabitToggle={handleHabitToggle}
+          handleDeleteHabit={handleDeleteHabit}
+          handleOpenEditModal={handleOpenEditModal}
+          initialWeeklyInsight={initialWeeklyInsight}
+          timerTime={timerTime}
+          timerRunning={timerRunning}
+          handleTimerStartStop={handleTimerStartStop}
+          handleTimerReset={handleTimerReset}
+          formatTime={formatTime}
+          currentMood={currentMood}
+          getMoodGradient={getMoodGradient}
+          moodEmojis={moodEmojis}
+          getMoodColorClass={getMoodColorClass}
+          handleSaveMood={handleSaveMood}
+          setActiveTab={setActiveTab}
+        />
+      )}
 
-          {/* Scrollable Dashboard Body */}
-          <section className="p-6 lg:p-16 space-y-10 flex-grow">
-            
-            {/* Summary Bento Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              
-              {/* Card 1: Current Streak */}
-              <div className="bg-white p-6 rounded-xl habit-card-shadow flex flex-col justify-between border border-surface-container relative overflow-hidden group">
-                <div className="z-10">
-                  <p className="text-[10px] font-extrabold text-on-surface-variant uppercase tracking-wider mb-1">Current Streak</p>
-                  <h3 className="font-headline text-3xl font-extrabold text-primary">{currentStreak} Days</h3>
-                  <p className="text-xs text-on-surface-variant mt-3 font-medium">You're doing amazing! Consistency is key.</p>
-                </div>
-                <span className="material-symbols-outlined absolute -bottom-6 -right-6 text-primary opacity-[0.04] text-[130px] group-hover:scale-110 transition-transform duration-500 select-none" style={{ fontVariationSettings: "'FILL' 1" }}>
-                  local_fire_department
-                </span>
-              </div>
+      {visitedTabs.has('library') && (
+        <LibraryTab
+          isActive={activeTab === 'library'}
+          handleUsePreset={handleUsePreset}
+          handleOpenEditModal={handleOpenEditModal}
+        />
+      )}
 
-              {/* Card 2: Daily Goal Percentage */}
-              <div className="bg-white p-6 rounded-xl habit-card-shadow flex flex-col justify-between border border-surface-container">
-                <div>
-                  <p className="text-[10px] font-extrabold text-on-surface-variant uppercase tracking-wider mb-1">Daily Goal</p>
-                  <h3 className="font-headline text-3xl font-extrabold text-secondary">
-                    {dailyGoalCompleted} <span className="text-lg text-outline font-normal">/ {dailyGoalTotal}</span>
-                  </h3>
-                  <div className="w-full bg-surface-container h-2 rounded-full mt-4 overflow-hidden shadow-inner">
-                    <div 
-                      className="bg-primary h-full rounded-full transition-all duration-500" 
-                      style={{ width: `${dailyGoalTotal > 0 ? (dailyGoalCompleted / dailyGoalTotal) * 100 : 0}%` }}
-                    ></div>
-                  </div>
-                </div>
-                <p className="text-xs text-on-surface-variant mt-3 font-medium">
-                  {dailyGoalCompleted === dailyGoalTotal && dailyGoalTotal > 0 
-                    ? "Perfect score! All habits finished." 
-                    : `${dailyGoalTotal - dailyGoalCompleted} remaining tasks to close your day.`
-                  }
-                </p>
-              </div>
+      {visitedTabs.has('analytics') && (
+        <AnalyticsTab
+          isActive={activeTab === 'analytics'}
+          optimisticWeeklyTrends={optimisticWeeklyTrends}
+          initialCategoryBreakdown={initialCategoryBreakdown}
+          initialLogs90Days={initialLogs90Days}
+          todayStr={todayStr}
+          dailyGoalCompleted={dailyGoalCompleted}
+          userTimezone={userTimezone}
+          moodHistory={moodHistory}
+          getMoodColorClass={getMoodColorClass}
+        />
+      )}
 
-              {/* Card 3: Weekly Success — Real Data */}
-              <div className="bg-white p-6 rounded-xl habit-card-shadow flex flex-col justify-between border border-surface-container">
-                <div>
-                  <p className="text-[10px] font-extrabold text-on-surface-variant uppercase tracking-wider mb-1">Weekly Success</p>
-                  <h3 className="font-headline text-3xl font-extrabold text-tertiary-container">{optimisticWeeklySuccess}%</h3>
-                  
-                  {/* Real day-by-day bars */}
-                  <div className="flex gap-1.5 mt-4">
-                    {weekDayBars.map((bar, i) => (
-                      <div
-                        key={i}
-                        className={`flex-grow h-7 rounded-sm shadow-sm transition-all ${
-                          bar.ratio > 0 ? 'bg-primary' : 'bg-surface-container'
-                        }`}
-                        style={{ opacity: bar.ratio > 0 ? Math.max(0.4, bar.ratio) : 1 }}
-                        title={`${bar.day}: ${Math.round(bar.ratio * 100)}%`}
-                      ></div>
-                    ))}
-                  </div>
-                </div>
-                <p className="text-xs text-on-surface-variant mt-3 font-medium">
-                  {weeklyDelta > 0
-                    ? `Trending ${weeklyDelta}% higher than last week.`
-                    : weeklyDelta < 0
-                    ? `Down ${Math.abs(weeklyDelta)}% from last week. Keep pushing!`
-                    : 'Same as last week. Stay consistent!'}
-                </p>
-              </div>
-            </div>
+      {visitedTabs.has('community') && (
+        <CommunityTab
+          isActive={activeTab === 'community'}
+          liveLeaderboard={liveLeaderboard}
+          userId={userId}
+        />
+      )}
 
-            {/* Main Section: Checklist & Widgets */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              
-              {/* Daily Checklist Column */}
-              <div className="lg:col-span-7 bg-white p-6 rounded-xl habit-card-shadow border border-surface-container flex flex-col justify-between">
-                <div>
-                  <div className="flex justify-between items-center mb-6">
-                    <h4 className="font-headline text-xl font-bold text-on-surface">Daily Habits</h4>
-                    <button 
-                      onClick={() => { setEditingHabit(null); setIsModalOpen(true); }}
-                      className="flex items-center gap-1 text-primary font-bold hover:underline text-sm transition-all"
-                    >
-                      <span className="material-symbols-outlined text-lg">add_circle</span>
-                      <span className="font-headline">Add Habit</span>
-                    </button>
-                  </div>
-
-                  {filteredHabits.length === 0 ? (
-                    <div className="text-center py-12 px-4 border border-dashed border-outline-variant/60 rounded-xl bg-surface-container-low/40">
-                      <span className="material-symbols-outlined text-5xl text-outline-variant/60 mb-3 font-light">playlist_add_check_circle</span>
-                      <h5 className="font-headline text-base font-medium text-on-surface">No habits tracked</h5>
-                      <p className="text-xs text-on-surface-variant mt-1 max-w-xs mx-auto">
-                        {activeSearch 
-                          ? "We couldn't find any habits matching your search terms."
-                          : "Your consistency journey starts today. Add a habit to begin."
-                        }
-                      </p>
-                      {!activeSearch && (
-                        <button 
-                          onClick={() => { setEditingHabit(null); setIsModalOpen(true); }}
-                          className="mt-6 px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-full shadow-sm hover:opacity-90 active:scale-95 transition-all"
-                        >
-                          Create Habit
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {filteredHabits.map((habit) => (
-                        <HabitCard 
-                          key={habit.id} 
-                          habit={habit} 
-                          onToggle={(id) => {
-                            const btn = document.getElementById(`chk-${id}`);
-                            handleHabitToggle(id, btn || document.body);
-                          }}
-                          onDelete={handleDeleteHabit}
-                          onEdit={handleOpenEditModal}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Side Panels Column */}
-              <div className="lg:col-span-5 space-y-6">
-                
-                {/* Milestone Insight Banner widget */}
-                <InsightBanner insight={initialWeeklyInsight} />
-
-                {/* Focus Timer Bento Box */}
-                <div className="bg-white p-6 rounded-xl habit-card-shadow border border-surface-container">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="material-symbols-outlined text-on-surface-variant text-lg">timer</span>
-                    <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Deep Work</h3>
-                  </div>
-
-                  <div className="text-center py-2 flex flex-col items-center">
-                    <span className="font-headline text-4xl font-extrabold text-primary tracking-tight select-none">
-                      {formatTime(timerTime)}
-                    </span>
-                    
-                    <div className="mt-4 flex justify-center gap-3">
-                      <button 
-                        onClick={handleTimerStartStop}
-                        className={`p-3 rounded-full hover:scale-110 active:scale-95 transition-transform flex items-center justify-center shadow-md ${
-                          timerRunning 
-                            ? 'bg-secondary text-on-secondary' 
-                            : 'bg-primary-container text-on-primary-container'
-                        }`}
-                        title={timerRunning ? 'Pause timer' : 'Start timer'}
-                      >
-                        <span className="material-symbols-outlined">
-                          {timerRunning ? 'pause' : 'play_arrow'}
-                        </span>
-                      </button>
-                      
-                      <button 
-                        onClick={handleTimerReset}
-                        className="p-3 bg-surface-container-low text-on-surface-variant rounded-full border border-outline-variant/30 hover:bg-surface-container-high hover:scale-105 active:scale-95 transition-all flex items-center justify-center shadow-sm"
-                        title="Reset timer"
-                      >
-                        <span className="material-symbols-outlined">restart_alt</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Mood Tracker Bento Box */}
-                <div className={`bg-white p-6 rounded-xl habit-card-shadow border flex flex-col justify-between transition-colors duration-700 ease-in-out ${getMoodGradient(currentMood)} ${currentMood ? 'border-transparent' : 'border-surface-container'}`}>
-                  <div>
-                    <h3 className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">How are you feeling?</h3>
-                    <div className="flex justify-between px-1 items-center h-12">
-                      {moodEmojis.map((emoji) => {
-                        const isSelected = currentMood === emoji;
-                        return (
-                          <button
-                            key={emoji}
-                            onClick={() => handleSaveMood(emoji)}
-                            className={`text-2xl transition-all duration-300 hover:scale-125 ${
-                              isSelected 
-                                ? `scale-125 shadow-sm p-1.5 rounded-full border ${getMoodColorClass(emoji)}`
-                                : 'grayscale opacity-70 hover:grayscale-0 hover:opacity-100'
-                            }`}
-                          >
-                            {emoji}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => setActiveTab('analytics')}
-                    className="text-primary font-bold text-xs flex items-center gap-1 mt-5 hover:underline"
-                  >
-                    View Mood History <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-      ) : activeTab === 'library' ? (
-        /* HABIT LIBRARY VIEW */
-        <div className="p-6 lg:p-16 flex-1">
-          <header className="mb-6 flex justify-between items-center">
-            <div>
-              <h2 className="font-headline text-3xl font-extrabold text-on-surface">Habit Library</h2>
-              <p className="text-sm text-on-surface-variant font-medium mt-1">Explore presets or manage your templates</p>
-            </div>
-            <button 
-              onClick={() => { setEditingHabit(null); setIsModalOpen(true); }}
-              className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-lg shadow-md hover:opacity-95 active:scale-95 transition-all"
-            >
-              Add Custom Habit
-            </button>
-          </header>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="p-5 border border-outline-variant bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
-              <span className="material-symbols-outlined text-primary text-2xl mb-2">fitness_center</span>
-              <h4 className="font-headline font-bold text-on-surface">Fitness Presets</h4>
-              <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">Preset templates for yoga, running, weightlifting, and stretch stretches.</p>
-              <button 
-                onClick={() => handleUsePreset('Daily Yoga', '15 mins morning session', 'Morning', 'fitness_center', 'Daily')}
-                className="mt-4 text-xs font-bold text-primary hover:underline flex items-center gap-0.5"
-              >
-                Use Preset <span className="material-symbols-outlined text-[14px]">add</span>
-              </button>
-            </div>
-            
-            <div className="p-5 border border-outline-variant bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
-              <span className="material-symbols-outlined text-primary text-2xl mb-2">self_improvement</span>
-              <h4 className="font-headline font-bold text-on-surface">Mental Health</h4>
-              <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">Preset templates for daily journaling, micro-meditations, and breathwork.</p>
-              <button 
-                onClick={() => handleUsePreset('Daily Breathing', '5 mins focused breath', 'Morning', 'self_improvement', 'Daily')}
-                className="mt-4 text-xs font-bold text-primary hover:underline flex items-center gap-0.5"
-              >
-                Use Preset <span className="material-symbols-outlined text-[14px]">add</span>
-              </button>
-            </div>
-
-            <div className="p-5 border border-outline-variant bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow">
-              <span className="material-symbols-outlined text-primary text-2xl mb-2">payments</span>
-              <h4 className="font-headline font-bold text-on-surface">Financial habits</h4>
-              <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">Templates for daily budget logging, savings tracks, and investment checks.</p>
-              <button 
-                onClick={() => handleUsePreset('Log Expenses', 'Check banking ledger', 'Evening', 'payments', 'Daily')}
-                className="mt-4 text-xs font-bold text-primary hover:underline flex items-center gap-0.5"
-              >
-                Use Preset <span className="material-symbols-outlined text-[14px]">add</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : activeTab === 'analytics' ? (
-        /* ANALYTICS VIEW — Real Data */
-        <div className="p-6 lg:p-16 flex-1">
-          <header className="mb-6">
-            <h2 className="font-headline text-3xl font-extrabold text-on-surface">Analytics & Insights</h2>
-            <p className="text-sm text-on-surface-variant font-medium mt-1">Review your habit patterns over time</p>
-          </header>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Completion Trends — Real Weekly Data */}
-            <div className="p-6 bg-white border border-surface-container rounded-xl shadow-sm">
-              <h4 className="font-headline font-bold text-on-surface mb-4">Completion Trends</h4>
-              <div className="h-64 flex items-end justify-between px-4 pb-2 border-b border-outline-variant/30 gap-3">
-                {optimisticWeeklyTrends.length > 0 ? (
-                  optimisticWeeklyTrends.map((week, i) => (
-                    <div key={i} className="flex-1 h-full flex flex-col justify-end group">
-                      <div className="w-full bg-surface-container-low/50 rounded-t-xl h-full relative overflow-hidden flex flex-col justify-end border border-outline-variant/10">
-                        <div
-                          className={`w-full rounded-t-xl transition-all duration-1000 ease-out relative ${
-                            week.percentage === 0 ? 'bg-transparent' :
-                            i === optimisticWeeklyTrends.length - 1 ? 'bg-secondary shadow-md' : 'bg-primary/80 group-hover:bg-primary'
-                          }`}
-                          style={{ height: `${Math.max(week.percentage, 0)}%` }}
-                          title={`${week.label}: ${week.percentage}%`}
-                        >
-                          {week.percentage > 0 && (
-                            <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-surface text-on-surface text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm z-10 pointer-events-none">
-                              {week.percentage}%
-                            </div>
-                          )}
-                        </div>
-                        {week.percentage === 0 && (
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <span className="text-[10px] text-on-surface-variant/40 font-bold -rotate-90 whitespace-nowrap tracking-widest">
-                              NO DATA
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center text-on-surface-variant py-8">
-                    <span className="material-symbols-outlined text-3xl opacity-40 mb-2 font-light">monitoring</span>
-                    <p className="text-xs max-w-[180px]">No analytics yet — complete habits consistently to unlock insights.</p>
-                  </div>
-                )}
-              </div>
-              <div className="flex justify-between text-[10px] sm:text-xs text-on-surface-variant mt-3 px-1">
-                {optimisticWeeklyTrends.map((week, i) => (
-                  <span key={i} className={`truncate max-w-[60px] text-center ${i === optimisticWeeklyTrends.length - 1 ? 'font-bold text-secondary' : ''}`} title={week.label}>{week.label}</span>
-                ))}
-              </div>
-            </div>
-
-            {/* Category Breakdown — Real Data */}
-            <div className="p-6 bg-white border border-surface-container rounded-xl shadow-sm flex flex-col justify-between">
-              <div>
-                <h4 className="font-headline font-bold text-on-surface mb-2">Streak Master Rank</h4>
-                <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Completion rates by time-of-day category over the past 7 days.
-                </p>
-              </div>
-              
-              <div className="space-y-3 mt-6">
-                {initialCategoryBreakdown.length > 0 ? (
-                  initialCategoryBreakdown.map((cat, i) => (
-                    <div key={i}>
-                      <div className="flex justify-between text-xs font-bold mb-1">
-                        <span>{cat.category} Habits</span>
-                        <span>{cat.percentage}%</span>
-                      </div>
-                      <div className="w-full bg-surface-container h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-primary h-full rounded-full transition-all duration-500"
-                          style={{ width: `${cat.percentage}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-6 text-on-surface-variant">
-                    <span className="material-symbols-outlined text-3xl opacity-40 mb-2 font-light">pie_chart</span>
-                    <p className="text-xs max-w-[200px] mx-auto">No analytics yet — complete habits consistently to unlock insights.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* 90-Day Consistency Heatmap Bento Card */}
-          <div className="mt-6 p-6 bg-white border border-surface-container rounded-xl shadow-sm overflow-hidden">
-            <h4 className="font-headline font-bold text-on-surface mb-2">90-Day Consistency Heatmap</h4>
-            <p className="text-xs text-on-surface-variant mb-6">Visualizing your daily habit completions over the last 13 weeks.</p>
-            
-            <div className="flex flex-col overflow-x-auto pb-6 pt-2 scrollbar-thin">
-              <div className="flex flex-col min-w-max">
-                
-                {/* Month labels */}
-                <div className="flex gap-1.5 mb-3 ml-11 h-4">
-                  {Array.from({ length: 13 }).map((_, col) => {
-                    const dayIndex = col * 7;
-                    let showMonth = false;
-                    let monthStr = '';
-                    if (dayIndex < heatmapData.length) {
-                      const d = new Date(heatmapData[dayIndex].date + 'T12:00:00Z');
-                      monthStr = new Intl.DateTimeFormat("en-US", { month: "short" }).format(d);
-                      
-                      if (col === 0) {
-                        showMonth = true;
-                      } else {
-                        const prevD = new Date(heatmapData[(col - 1) * 7].date + 'T12:00:00Z');
-                        const prevMonthStr = new Intl.DateTimeFormat("en-US", { month: "short" }).format(prevD);
-                        if (monthStr !== prevMonthStr) {
-                          showMonth = true;
-                        }
-                      }
-                    }
-
-                    return (
-                      <div key={col} className="w-4 sm:w-5 relative h-4">
-                        {showMonth && (
-                          <span className="text-[10px] font-bold text-on-surface-variant/80 absolute top-0 left-0 whitespace-nowrap">
-                            {monthStr}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="flex gap-3 min-w-max items-start">
-                  {/* Day labels (Sun, Tue, Thu, Sat) */}
-                  <div className="grid grid-rows-7 gap-1.5 text-[10px] text-on-surface-variant/70 font-semibold w-8 text-right pr-2 select-none items-center h-full pt-1">
-                    <span>Sun</span>
-                    <span></span>
-                    <span>Tue</span>
-                    <span></span>
-                    <span>Thu</span>
-                    <span></span>
-                    <span>Sat</span>
-                  </div>
-                  
-                  {/* Heatmap Grid */}
-                  <div className="grid grid-flow-col grid-rows-7 gap-1.5">
-                    {heatmapData.map((day, idx) => {
-                      const isFuture = day.level === -1;
-                      const levelColors = [
-                        'bg-surface-container-low border border-outline-variant/10', // Level 0
-                        'bg-primary opacity-[0.35]',                                 // Level 1
-                        'bg-primary opacity-[0.65]',                                 // Level 2
-                        'bg-primary opacity-100',                                    // Level 3
-                      ];
-                      
-                      return (
-                        <div
-                          key={idx}
-                          className={`group relative w-4 h-4 sm:w-5 sm:h-5 rounded-[4px] transition-all duration-300 ${
-                            isFuture ? 'bg-transparent' : levelColors[day.level]
-                          } ${!isFuture ? 'hover:scale-125 hover:z-50 hover:shadow-md cursor-pointer' : ''}`}
-                        >
-                          {!isFuture && (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-on-surface text-surface text-[10px] rounded-md shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 flex items-center gap-1.5">
-                              <span className="font-bold text-xs">{day.count === 0 ? 'No activity' : `${day.count} habit${day.count === 1 ? '' : 's'}`}</span>
-                              <span className="opacity-70 text-[9px] uppercase tracking-wider">on {formatLocalDate(day.date, userTimezone)}</span>
-                              
-                              {/* Triangle pointer */}
-                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-on-surface"></div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-              
-              {/* Legend */}
-              <div className="flex items-center gap-2 text-[10px] font-bold text-on-surface-variant/70 mt-6 justify-end">
-                <span>LESS</span>
-                <div className="w-4 h-4 rounded-[4px] bg-surface-container-low border border-outline-variant/10" />
-                <div className="w-4 h-4 rounded-[4px] bg-primary opacity-[0.35]" />
-                <div className="w-4 h-4 rounded-[4px] bg-primary opacity-[0.65]" />
-                <div className="w-4 h-4 rounded-[4px] bg-primary opacity-100" />
-                <span>MORE</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Mood History Section */}
-          <div className="mt-6 p-6 bg-white border border-surface-container rounded-xl shadow-sm">
-            <h4 className="font-headline font-bold text-on-surface mb-2">Mood History</h4>
-            <p className="text-xs text-on-surface-variant mb-4">Your recorded moods over the past days.</p>
-            
-            {moodHistory.length > 0 ? (
-              <div className="grid grid-cols-7 sm:grid-cols-10 gap-3">
-                {moodHistory.map((entry, i) => (
-                  <div key={i} className={`flex flex-col items-center gap-1 p-2 rounded-lg border shadow-sm transition-all hover:scale-110 ${getMoodColorClass(entry.emoji)}`}>
-                    <span className="text-xl drop-shadow-sm">{entry.emoji}</span>
-                    <span className="text-[9px] font-medium opacity-80">
-                      {formatLocalDate(entry.date, userTimezone)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-10 text-on-surface-variant border border-dashed border-outline-variant/60 rounded-xl bg-surface-container-low/40">
-                <span className="material-symbols-outlined text-4xl opacity-40 mb-3 font-light">mood</span>
-                <p className="text-xs max-w-[200px] mx-auto">No mood entries yet — start tracking your daily mood on the dashboard.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        /* COMMUNITY VIEW — Real Leaderboard */
-        <div className="p-6 lg:p-16 flex-1">
-          <header className="mb-6">
-            <h2 className="font-headline text-3xl font-extrabold text-on-surface">Community Leaderboard</h2>
-            <p className="text-sm text-on-surface-variant font-medium mt-1">See how you measure up with others</p>
-          </header>
-
-          <div className="bg-white border border-surface-container rounded-xl shadow-sm overflow-hidden">
-            <div className="px-6 py-4 bg-surface-container-low border-b border-outline-variant/30 flex justify-between text-xs font-extrabold text-on-surface-variant uppercase">
-              <span>User</span>
-              <span>Daily Streak</span>
-            </div>
-            <div className="divide-y divide-outline-variant/20">
-              {liveLeaderboard.length > 0 ? (
-                liveLeaderboard.map((entry, i) => {
-                  const isCurrentUser = entry.userId === userId;
-                  return (
-                    <div key={entry.userId} className={`px-6 py-4 flex justify-between items-center transition-colors duration-500 ${isCurrentUser ? 'bg-secondary-container/10 border-l-4 border-secondary' : 'border-l-4 border-transparent'}`}>
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-sm transition-transform duration-500 ${isCurrentUser ? 'scale-110' : ''} ${
-                          i === 0 ? 'bg-gradient-to-br from-yellow-200 to-amber-400 text-amber-900 border border-amber-300' :
-                          i === 1 ? 'bg-gradient-to-br from-gray-200 to-gray-400 text-gray-900 border border-gray-300' :
-                          i === 2 ? 'bg-gradient-to-br from-orange-200 to-orange-400 text-orange-900 border border-orange-300' :
-                          'bg-primary/10 text-primary'
-                        }`}>
-                          {i + 1}
-                        </div>
-                        <span className={`text-sm ${isCurrentUser ? 'font-extrabold text-primary' : 'font-bold text-on-surface'}`}>
-                          {isCurrentUser ? `${entry.name} (You)` : entry.name}
-                        </span>
-                      </div>
-                      <span className={`text-sm font-bold transition-all duration-500 ${isCurrentUser ? 'font-extrabold text-primary scale-110' : 'text-primary'}`}>
-                        {entry.streak} Days
-                      </span>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="px-6 py-8 text-center text-on-surface-variant">
-                  <span className="material-symbols-outlined text-3xl opacity-40 mb-2">group</span>
-                  <p className="text-xs">No leaderboard data yet. Start building streaks!</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+      {visitedTabs.has('settings') && (
+        <SettingsTab
+          isActive={activeTab === 'settings'}
+          userId={userId}
+        />
       )}
 
       {/* Habit Modal Form wrapper */}

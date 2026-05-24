@@ -1,7 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import { getLocalDate, addDays } from '@/app/today/dateUtils'
+import { cache } from 'react'
 
-export async function getHabits(userId: string) {
+export const getHabits = cache(async (userId: string) => {
   const { data, error } = await supabase
     .from('habits')
     .select('*')
@@ -10,7 +11,7 @@ export async function getHabits(userId: string) {
     .order('created_at', { ascending: true })
   if (error) throw new Error(error.message)
   return data
-}
+})
 
 export async function createHabit(userId: string, payload: {
   name: string; category: string; frequency: string;
@@ -35,7 +36,7 @@ export async function deleteHabit(habitId: string) {
   if (error) throw new Error(error.message)
 }
 
-export async function getTodayLogs(userId: string, date: string) {
+export const getTodayLogs = cache(async (userId: string, date: string) => {
   const { data, error } = await supabase
     .from('habit_logs')
     .select('*, habits!inner(user_id)')
@@ -43,7 +44,7 @@ export async function getTodayLogs(userId: string, date: string) {
     .eq('date', date)
   if (error) throw new Error(error.message)
   return data
-}
+})
 
 export async function toggleHabitLog(habitId: string, date: string, completed: boolean) {
   const { data, error } = await supabase
@@ -54,7 +55,7 @@ export async function toggleHabitLog(habitId: string, date: string, completed: b
   return data
 }
 
-export async function getLogs90Days(userId: string, tz: string) {
+export const getLogs90Days = cache(async (userId: string, tz: string) => {
   const todayStr = getLocalDate(tz);
   const fromStr = addDays(todayStr, -90);
   const { data, error } = await supabase
@@ -64,7 +65,7 @@ export async function getLogs90Days(userId: string, tz: string) {
     .gte('date', fromStr)
   if (error) throw new Error(error.message)
   return data
-}
+})
 
 export async function calculateStreaks(userId: string, tz: string) {
   const logs = await getLogs90Days(userId, tz)
@@ -93,7 +94,7 @@ export async function calculateStreaks(userId: string, tz: string) {
   })
 }
 
-export async function getWeeklyInsight(userId: string, tz: string) {
+export const getWeeklyInsight = cache(async (userId: string, tz: string) => {
   const todayStr = getLocalDate(tz);
   const d = new Date(todayStr + 'T12:00:00Z');
   const week = Math.ceil(d.getUTCDate() / 7)
@@ -106,7 +107,7 @@ export async function getWeeklyInsight(userId: string, tz: string) {
     .eq('year', year)
     .single()
   return data ?? null
-}
+})
 
 // Real weekly completion trends for the last 5 weeks
 export async function getWeeklyCompletionTrends(userId: string, tz: string) {
@@ -220,17 +221,65 @@ export async function getLeaderboard() {
 
   if (!users || users.length === 0) return []
 
+  // Fetch all active habits to avoid N+1
+  const { data: allHabits } = await supabase
+    .from('habits')
+    .select('id, user_id, name')
+    .eq('is_active', true)
+
+  // Fetch all logs from the last 90 days globally
+  const todayStrUTC = getLocalDate('UTC')
+  const fromStrUTC = addDays(todayStrUTC, -95)
+  const { data: allLogs } = await supabase
+    .from('habit_logs')
+    .select('habit_id, date, completed')
+    .gte('date', fromStrUTC)
+    .eq('completed', true)
+
+  const habitsByUser = new Map<string, any[]>()
+  if (allHabits) {
+    for (const h of allHabits) {
+      if (!habitsByUser.has(h.user_id)) habitsByUser.set(h.user_id, [])
+      habitsByUser.get(h.user_id)!.push(h)
+    }
+  }
+
+  const logsByHabit = new Map<string, string[]>()
+  if (allLogs) {
+    for (const l of allLogs) {
+      if (!logsByHabit.has(l.habit_id)) logsByHabit.set(l.habit_id, [])
+      logsByHabit.get(l.habit_id)!.push(l.date)
+    }
+  }
+
   const leaderboard: { userId: string; name: string; streak: number }[] = []
 
   for (const user of users) {
     try {
-      let tz = user.timezone;
-      if (!tz) {
-        console.warn(`[WARNING] Timezone missing for user ${user.id} in leaderboard. Falling back to UTC.`);
-        tz = 'UTC';
+      let tz = user.timezone || 'UTC';
+      const userHabits = habitsByUser.get(user.id) || []
+      
+      let bestStreak = 0
+      const todayStr = getLocalDate(tz)
+
+      for (const habit of userHabits) {
+        const habitLogs = logsByHabit.get(habit.id) || []
+        const sortedDates = [...habitLogs].sort().reverse()
+        
+        let streak = 0
+        let prev: string | null = null
+        for (const date of sortedDates) {
+          if (!prev) { streak = 1 }
+          else {
+            const diff = (new Date(prev).getTime() - new Date(date).getTime()) / 86400000
+            streak = diff === 1 ? streak + 1 : 1
+          }
+          prev = date
+        }
+        
+        if (streak > bestStreak) bestStreak = streak
       }
-      const streaks = await calculateStreaks(user.id, tz)
-      const bestStreak = streaks.length > 0 ? Math.max(...streaks.map(s => s.current), 0) : 0
+
       leaderboard.push({
         userId: user.id,
         name: user.name || 'Anonymous',
@@ -254,7 +303,7 @@ export async function saveMood(userId: string, date: string, emoji: string) {
   return data
 }
 
-export async function getMoodLogs90Days(userId: string, tz: string) {
+export const getMoodLogs90Days = cache(async (userId: string, tz: string) => {
   const todayStr = getLocalDate(tz);
   const fromStr = addDays(todayStr, -90);
   const { data, error } = await supabase
@@ -264,4 +313,4 @@ export async function getMoodLogs90Days(userId: string, tz: string) {
     .gte('date', fromStr)
   if (error) throw new Error(error.message)
   return data
-}
+})

@@ -7,7 +7,8 @@ export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
   
   // Protect the route using the CRON_SECRET token
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Allow bypassing the check in development mode for easy browser testing
+  if (process.env.NODE_ENV !== 'development' && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
