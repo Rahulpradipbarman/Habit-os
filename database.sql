@@ -8,6 +8,7 @@ create table users (
   name text,
   reminder_time text,
   timezone text,
+  daily_goal_threshold integer default 4,
   created_at timestamptz default now()
 );
 

@@ -10,7 +10,7 @@ interface SettingsTabProps {
 export const SettingsTab = React.memo(function SettingsTab({ userId, isActive }: SettingsTabProps) {
   const [userName, setUserName] = useState('');
   const [notifications, setNotifications] = useState(false);
-  const [goalCount, setGoalCount] = useState(4);
+  const [goalCount, setGoalCount] = useState<string | number>(4);
   const [loading, setLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
 
@@ -22,6 +22,7 @@ export const SettingsTab = React.memo(function SettingsTab({ userId, isActive }:
         .then((data) => {
           setUserName(data?.name || '');
           setNotifications(!!data?.reminder_time);
+          setGoalCount(data?.daily_goal_threshold || 4);
           setDataLoaded(true);
         })
         .catch((err) => {
@@ -37,10 +38,16 @@ export const SettingsTab = React.memo(function SettingsTab({ userId, isActive }:
     e.preventDefault();
     setLoading(true);
     try {
+      let finalGoalCount = typeof goalCount === 'number' ? goalCount : parseInt(goalCount as string) || 1;
+      if (finalGoalCount < 1) finalGoalCount = 1;
+      if (finalGoalCount > 50) finalGoalCount = 50;
+      setGoalCount(finalGoalCount);
+
       const reminderTimeValue = notifications ? '08:00' : null;
       await updateSettingsAction(userId, {
         name: userName,
-        reminder_time: reminderTimeValue
+        reminder_time: reminderTimeValue,
+        daily_goal_threshold: finalGoalCount
       });
       alert('Settings saved successfully!');
     } catch (err: any) {
@@ -107,9 +114,24 @@ export const SettingsTab = React.memo(function SettingsTab({ userId, isActive }:
               <label className="block text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2">Daily Goal Threshold (habits)</label>
               <input 
                 type="number" 
+                inputMode="numeric"
                 min="1"
+                max="50"
                 value={goalCount}
-                onChange={(e) => setGoalCount(parseInt(e.target.value) || 1)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '') {
+                    setGoalCount('');
+                  } else {
+                    setGoalCount(parseInt(val) || 1);
+                  }
+                }}
+                onBlur={() => {
+                  let val = typeof goalCount === 'number' ? goalCount : parseInt(goalCount as string) || 1;
+                  if (val < 1) val = 1;
+                  if (val > 50) val = 50;
+                  setGoalCount(val);
+                }}
                 className="w-full text-sm px-3 py-2 border outline-none bg-white border-outline-variant rounded-lg focus:border-primary"
               />
             </div>

@@ -1,4 +1,4 @@
-import React, { useDeferredValue, useMemo } from 'react';
+import React, { useDeferredValue, useMemo, useState, useEffect, useRef } from 'react';
 import { addDays, formatLocalDate } from '@/app/today/dateUtils';
 
 interface AnalyticsTabProps {
@@ -26,6 +26,22 @@ export const AnalyticsTab = React.memo(function AnalyticsTab({
 }: AnalyticsTabProps) {
   // Defer heavy data computations so tab switching is visually instantaneous
   const deferredLogs = useDeferredValue(initialLogs90Days);
+  const [activeTooltipIndex, setActiveTooltipIndex] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setActiveTooltipIndex(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, []);
 
   const heatmapData = useMemo(() => {
     // Only compute if we are active or have been visited
@@ -158,7 +174,7 @@ export const AnalyticsTab = React.memo(function AnalyticsTab({
       </div>
 
       {/* 90-Day Consistency Heatmap */}
-      <div className="mt-6 p-6 bg-white border border-surface-container rounded-xl shadow-sm overflow-hidden">
+      <div ref={containerRef} className="mt-6 p-6 bg-white border border-surface-container rounded-xl shadow-sm overflow-hidden">
         <h4 className="font-headline font-bold text-on-surface mb-2">90-Day Consistency Heatmap</h4>
         <p className="text-xs text-on-surface-variant mb-6">Visualizing your daily habit completions over the last 13 weeks.</p>
         
@@ -224,12 +240,13 @@ export const AnalyticsTab = React.memo(function AnalyticsTab({
                   return (
                     <div
                       key={idx}
+                      onClick={() => !isFuture && setActiveTooltipIndex(activeTooltipIndex === idx ? null : idx)}
                       className={`group relative w-4 h-4 sm:w-5 sm:h-5 rounded-[4px] transition-all duration-300 ${
                         isFuture ? 'bg-transparent' : levelColors[day.level]
                       } ${!isFuture ? 'hover:scale-125 hover:z-50 hover:shadow-md cursor-pointer' : ''}`}
                     >
                       {!isFuture && (
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-on-surface text-surface text-[10px] rounded-md shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 flex items-center gap-1.5">
+                        <div className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2.5 py-1.5 bg-on-surface text-surface text-[10px] rounded-md shadow-xl transition-opacity pointer-events-none whitespace-nowrap z-50 flex items-center gap-1.5 ${activeTooltipIndex === idx ? 'opacity-100' : 'opacity-0 md:group-hover:opacity-100'}`}>
                           <span className="font-bold text-xs">{day.count === 0 ? 'No activity' : `${day.count} habit${day.count === 1 ? '' : 's'}`}</span>
                           <span className="opacity-70 text-[9px] uppercase tracking-wider">on {formatLocalDate(day.date, userTimezone)}</span>
                           

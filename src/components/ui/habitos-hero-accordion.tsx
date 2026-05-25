@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 
 // --- Data for the image accordion ---
 const accordionItems = [
@@ -53,21 +54,20 @@ const AccordionItem = React.memo(({ item, isActive, onMouseEnter }: { item: any,
       onMouseEnter={onMouseEnter}
     >
       {/* Background Image */}
-      <motion.img
+      <motion.div
         layout
-        src={item.imageUrl}
-        alt={item.title}
         initial={false}
         animate={{ scale: isActive ? 1.05 : 1 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }} // Optimized ease-out curve
-        className="absolute inset-0 w-full h-[150%] md:h-full object-cover bg-surface-variant"
+        className="absolute inset-0 w-full h-[150%] md:h-full object-cover bg-surface-variant overflow-hidden"
         style={{ 
           transformOrigin: "center",
           willChange: "transform",
           WebkitTransform: 'translateZ(0)',
         }}
-        onError={(e) => { (e.target as HTMLImageElement).onerror = null; (e.target as HTMLImageElement).src = 'https://placehold.co/400x450/2d3748/ffffff?text=Image+Error'; }}
-      />
+      >
+        <Image src={item.imageUrl} alt={item.title} fill sizes="(max-width: 768px) 90vw, (max-width: 1200px) 40vw, 25vw" className="object-cover" />
+      </motion.div>
       
       {/* Dark overlay for better text readability */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"></div>
@@ -153,11 +153,12 @@ export function HabitosHeroAccordion() {
               key={item.id} 
               className="relative w-[85vw] shrink-0 snap-center rounded-xl overflow-hidden shadow-md border border-outline-variant/10"
             >
-              <img 
+              <Image 
                 src={item.imageUrl} 
                 alt={item.title} 
-                className="absolute inset-0 w-full h-full object-cover bg-surface-variant"
-                onError={(e) => { (e.target as HTMLImageElement).onerror = null; (e.target as HTMLImageElement).src = 'https://placehold.co/400x450/2d3748/ffffff?text=Image+Error'; }}
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
+                className="object-cover bg-surface-variant"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"></div>
               <span className="absolute bottom-6 left-6 text-white font-headline font-bold text-xl drop-shadow-md">

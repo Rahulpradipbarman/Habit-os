@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import Image from 'next/image';
 
 interface SlideData {
   title: string;
@@ -221,10 +222,13 @@ export default function ElegantCarousel() {
                 : 'translate-x-0 opacity-100'
             }`}
           >
-            <img
+            <Image
               src={currentSlide.imageUrl}
               alt={currentSlide.title}
-              className="absolute inset-0 w-full h-full object-cover"
+              fill
+              sizes="(max-width: 768px) 100vw, 50vw"
+              priority={currentIndex === 0}
+              className="object-cover"
             />
 
           </div>

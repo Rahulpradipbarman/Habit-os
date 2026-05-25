@@ -3,6 +3,7 @@
 import * as React from "react";
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
+import Image from "next/image";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -59,9 +60,14 @@ const StickyTestimonialCard = ({ testimonial, index }: { testimonial: Testimonia
       )}>
         {/* Top section: Image and Author */}
         <div className="flex items-center gap-4">
-          <Avatar className="w-14 h-14 border border-outline-variant/20 shadow-sm">
-            <AvatarImage src={testimonial.avatarSrc} alt={testimonial.name} />
-            <AvatarFallback>{testimonial.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+          <Avatar className="w-14 h-14 border border-outline-variant/20 shadow-sm relative">
+            <Image 
+              src={testimonial.avatarSrc} 
+              alt={testimonial.name} 
+              fill 
+              sizes="64px" 
+              className="object-cover" 
+            />
           </Avatar>
           <div className="flex-grow">
             <p className="font-headline font-bold text-lg text-on-surface leading-tight">{testimonial.name}</p>

@@ -49,14 +49,14 @@ export async function deleteHabitAction(habitId: string) {
 export async function getSettingsAction(userId: string) {
   const { data, error } = await supabase
     .from('users')
-    .select('name, reminder_time')
+    .select('name, reminder_time, daily_goal_threshold')
     .eq('id', userId)
     .single()
   if (error) throw new Error(error.message)
   return data
 }
 
-export async function updateSettingsAction(userId: string, payload: { name?: string; reminder_time?: string | null }) {
+export async function updateSettingsAction(userId: string, payload: { name?: string; reminder_time?: string | null; daily_goal_threshold?: number }) {
   const { data, error } = await supabase.from('users').update(payload).eq('id', userId).select().single()
   if (error) throw new Error(error.message)
   revalidatePath('/today')
