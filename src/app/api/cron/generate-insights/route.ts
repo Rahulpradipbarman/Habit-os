@@ -87,6 +87,16 @@ export async function GET(request: Request) {
           .eq('habits.user_id', user.id)
           .gte('date', formattedDate)
 
+        // Eligibility Check: User must have meaningful activity to get an insight
+        const uniqueDays = new Set((logs || []).map(log => log.date));
+        const completedCount = (logs || []).filter(log => log.completed).length;
+
+        if (uniqueDays.size < 5 || completedCount < 5) {
+          console.log(`[Cron] Skipping AI generation for user ${user.id} - insufficient activity (unique days: ${uniqueDays.size}, completed logs: ${completedCount})`);
+          results.push({ userId: user.id, status: 'skipped_insufficient_activity' });
+          continue;
+        }
+
         // Summarize performance
         const habitCompletionSummary = habits.map(h => {
           const total = 7

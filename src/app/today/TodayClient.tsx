@@ -372,6 +372,17 @@ export default function TodayClient({
      }).sort((a, b) => b.streak - a.streak);
   }, [initialLeaderboard, userId, currentStreak]);
 
+  // AI Insight Eligibility Validation
+  const displayedInsight = React.useMemo(() => {
+    const uniqueDays = new Set(initialLogs90Days.map(log => log.date));
+    const completedCount = initialLogs90Days.filter(log => log.completed).length;
+    
+    if (uniqueDays.size >= 5 && completedCount >= 5) {
+      return initialWeeklyInsight;
+    }
+    return null;
+  }, [initialLogs90Days, initialWeeklyInsight]);
+
   return (
     <SidebarLayout onAddHabitClick={() => { setEditingHabit(null); setIsModalOpen(true); }}>
       <PerformanceTracker />
@@ -395,7 +406,7 @@ export default function TodayClient({
           handleHabitToggle={handleHabitToggle}
           handleDeleteHabit={handleDeleteHabit}
           handleOpenEditModal={handleOpenEditModal}
-          initialWeeklyInsight={initialWeeklyInsight}
+          initialWeeklyInsight={displayedInsight}
           timerTime={timerTime}
           timerRunning={timerRunning}
           handleTimerStartStop={handleTimerStartStop}

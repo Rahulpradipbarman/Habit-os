@@ -66,7 +66,7 @@ const AccordionItem = React.memo(({ item, isActive, onMouseEnter }: { item: any,
           WebkitTransform: 'translateZ(0)',
         }}
       >
-        <Image src={item.imageUrl} alt={item.title} fill sizes="(max-width: 768px) 90vw, (max-width: 1200px) 40vw, 25vw" className="object-cover" />
+        <Image src={item.imageUrl} alt={item.title} fill sizes="(max-width: 768px) 100vw, 75vw" className="object-cover" />
       </motion.div>
       
       {/* Dark overlay for better text readability */}
@@ -157,7 +157,7 @@ export function HabitosHeroAccordion() {
                 src={item.imageUrl} 
                 alt={item.title} 
                 fill
-                sizes="(max-width: 768px) 100vw, 50vw"
+                sizes="100vw"
                 className="object-cover bg-surface-variant"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"></div>

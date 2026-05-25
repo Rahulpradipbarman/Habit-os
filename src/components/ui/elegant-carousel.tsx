@@ -226,7 +226,7 @@ export default function ElegantCarousel() {
               src={currentSlide.imageUrl}
               alt={currentSlide.title}
               fill
-              sizes="(max-width: 768px) 100vw, 50vw"
+              sizes="100vw"
               priority={currentIndex === 0}
               className="object-cover"
             />

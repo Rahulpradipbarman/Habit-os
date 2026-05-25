@@ -43,13 +43,13 @@ export default function InsightBanner({ insight }: InsightBannerProps) {
       <div className="bg-white p-6 rounded-xl shadow-md border border-outline-variant/10 text-center flex flex-col items-center justify-center min-h-[200px] relative overflow-hidden group">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-secondary/5 opacity-50"></div>
         <span className="material-symbols-outlined text-4xl text-primary/40 mb-3 group-hover:scale-110 transition-transform duration-500">
-          auto_awesome
+          lock_open_right
         </span>
         <h4 className="font-headline text-lg font-bold text-on-surface mb-2 relative z-10">
-          Weekly AI Coaching
+          Insights Locked
         </h4>
-        <p className="text-xs text-on-surface-variant max-w-xs relative z-10">
-          Complete habits consistently this week to unlock personalized AI-powered coaching insights and momentum analysis.
+        <p className="text-xs text-on-surface-variant max-w-xs relative z-10 font-medium">
+          Complete habits consistently for a few more days to unlock your first AI insight ✨
         </p>
       </div>
     );

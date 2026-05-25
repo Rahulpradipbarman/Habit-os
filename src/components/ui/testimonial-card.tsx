@@ -65,7 +65,7 @@ const StickyTestimonialCard = ({ testimonial, index }: { testimonial: Testimonia
               src={testimonial.avatarSrc} 
               alt={testimonial.name} 
               fill 
-              sizes="64px" 
+              sizes="256px" 
               className="object-cover" 
             />
           </Avatar>
